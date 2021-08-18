@@ -18,7 +18,6 @@ make_line(A, B, C) ->
 make_point(A, B, C) ->
     #point{x = A, y = B, z = C}.
 
-
 rat_to_gps(P) when is_record(P, point) ->
     X = P#point.x,
     Y = P#point.y,
@@ -28,8 +27,6 @@ rat_to_gps(P) when is_record(P, point) ->
     Den = Z / Y,
     Lat = math:atan(Den/A),
     {Lat, Long}.
-
-    
 
 gps_to_rat(Lat, Long) ->
     %Lat = (math:pi() / 2) - Lat0,
@@ -47,7 +44,7 @@ gps_to_rat(Lat, Long) ->
     Y_over_X = math:tan(Long),
     X_over_Y = 
         case Y_over_X of
-            0.0 -> ?max;
+            0.0 -> Z*10;
             _ ->
                 1/Y_over_X
         end,

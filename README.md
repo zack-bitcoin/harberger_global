@@ -25,3 +25,11 @@ The way to make land unique is that each node in the Merkle tree should specify 
 
 [here is a math library for converting gps coordinates into rational spherical coordinates, converting rational spherical coordinates back to gps coordinates, and connecting rational coordinates into rational great circles](/rationals.erl)
 
+What we still need
+===================
+
+We need a second merkle tree to keep track of bids. Where people make offers to buy regions of land.
+
+We need a way for someone to post a combination of bids, and show that the resulting change of ownerships will result in the land having higher value, and this makes the ownerships all change.
+
+We need a way for someone to show that reorganizing the merkle tree of land ownership can make it more balanced, so merkle proofs can be shorter on average. 
