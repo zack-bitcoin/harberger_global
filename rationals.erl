@@ -3,7 +3,8 @@
          intersection/2, mid_point/2, 
          perpendicular_bisector/2,
          gps_to_rat/2,
-         rat_to_gps/2,
+         rat_to_gps/1,
+         simplify/1,
          meets/2, test/0]).
 
 %if a point is on a line, then
@@ -22,39 +23,61 @@ rat_to_gps(P) when is_record(P, point) ->
     X = P#point.x,
     Y = P#point.y,
     Z = P#point.z,
-    Long = math:atan(Y/X),
-    A = math:sqrt(math:pow(X/Y, 2) + 1),
-    Den = Z / Y,
+    X_over_Y = 
+        case Y of
+            0 -> ?max;
+            _ -> X/Y
+        end,
+    Long = math:atan(-X_over_Y),
+    A = math:sqrt(math:pow(X_over_Y, 2) + 1),
+    Den = if
+              (Y == 0) -> ?max;
+              true -> Z/Y
+          end,
     Lat = math:atan(Den/A),
-    {Lat, Long}.
+    {Lat2, Long2} = 
+        if
+            Lat < 0 -> {-Lat, Long + math:pi()};
+            true -> {Lat, Long}
+        end,
+    {Lat2 * 180 / math:pi(), 
+     Long2 * 180 / math:pi()}.
 
-gps_to_rat(Lat, Long) ->
-    %Lat = (math:pi() / 2) - Lat0,
+gps_to_rat(Lat0, Long0) when (Lat0 < 0) ->
+    gps_to_rat(-Lat0, Long0 + 180);
+gps_to_rat(Lat0, Long0) ->
+    Lat = Lat0 / 180 * math:pi(),
+    Long = (Long0 rem 360) / 180 * math:pi(),
     %lat is between -90 and 90. 90 is north pole.
     %long is between -180 and 180. 0 is London.
     %the line through the north pole and london is lat=0. includes points {0, 1, 1} and {0, 2, 1}
-    Z = 4294967295 * 2,
+    Z = 4294967295,
 
-    %(X/Z)^2 + (Y/Z)^2 = (1/(tan(latitude)))^2
+    %tan(latitude) = Z/D
+    %tan(latitude) = Z/sqrt((X)^2 + (Y)^2)
+    %tan(latitude) = Z^2/((X)^2 + (Y)^2)
     %(X)^2 + (Y)^2 = (Z/(tan(latitude)))^2
-    %(X/Y)^2 + 1 = (Z/(Y*tan(latitude)))^2
+    %(X/Y)^2 + 1 = (Z/(Y*tan(latitude)))^2 = A^2
     %sqrt((X/Y)^2 + 1) = (Z/(Y*tan(latitude)))
     %Y = Z/(tan(latitude)*sqrt((X/Y)^2 + 1))
 
-    Y_over_X = math:tan(Long),
-    X_over_Y = 
-        case Y_over_X of
-            0.0 -> Z*10;
-            _ ->
-                1/Y_over_X
+    X_over_Y = -math:tan(Long),
+    A0 = math:sqrt(math:pow(X_over_Y, 2) + 1),
+    Pi = math:pi(),
+    A = if
+            (Long < 0) -> -A0;
+            (Long > Pi) -> -A0;
+            true -> A0
         end,
-    A = math:sqrt(math:pow(X_over_Y, 2) + 1),
-    Den = A*math:tan(Lat),
+    TanLat = math:tan(Lat),
+    Den = A*TanLat,%Z/Y
     Y = if
-            (Den == 0) -> ?max;
+            TanLat == 0 -> ?max*?max;
+            (A == 0) -> ?max;
             true -> Z / Den
         end,
     X = Y * X_over_Y,
+    
     simplify(#point{x = round(X), 
                     y = round(Y), 
                     z = round(Z)}).
@@ -74,8 +97,20 @@ test() ->
     {LondonLat, Equator, Main},
     
     {rat_to_gps(gps_to_rat(0,0)),
-     rat_to_gps(gps_to_rat(math:pi()/4,math:pi()/4))
+     rat_to_gps(gps_to_rat(0,25)),
+     rat_to_gps(gps_to_rat(25,0)),
+     rat_to_gps(gps_to_rat(25,25)),
+     rat_to_gps(gps_to_rat(15,30)),
+     rat_to_gps(gps_to_rat(15,210)),
+     rat_to_gps(gps_to_rat(-15,30)),
+     rat_to_gps(gps_to_rat(-15,210)),
+     (gps_to_rat(0,0)),
+     (gps_to_rat(15,30)),%A
+     (gps_to_rat(15,210)),%B
+     (gps_to_rat(-15,30)),%B
+     (gps_to_rat(-15,210))%A
     }.
+
      
 
 simplify(P) when is_record(P, line) ->
@@ -92,12 +127,19 @@ simplify(P) when is_record(P, point) ->
         ((X2 > ?max) 
          or (Y2 > ?max)
          or (Z2 > ?max)) ->
-            X3 = max(1, X2 div 2),
-            Y3 = max(1, Y2 div 2),
-            Z3 = max(1, Z2 div 2),
+            X3 = div2(X2),
+            Y3 = div2(Y2),
+            Z3 = div2(Z2),
             simplify(#point{x = X3, y = Y3, z = Z3});
         true -> #point{x = X2, y = Y2, z = Z2}
     end.
+div2(X) ->
+    case X of
+        1 -> 1;
+        -1 -> -1;
+        X -> X div 2
+    end.
+            
        
 gcf(X, Y) when (abs(Y) > abs(X)) ->         
     gcf(Y, X);
