@@ -1,5 +1,7 @@
 -module(spherical_trig).
--export([test/0, test2/0, quadrance/2, area/1]).
+-export([test/0, test2/0, test3/0,
+         quadrance/2, area/1,
+         direction/2]).
 
 %todo. maybe we should calculate the direction to walk to get from one point to another.
 
@@ -56,10 +58,8 @@ planar_area([{A1, _}, {A2, _}, {A3, _}]) ->
 area(T = #triangle{x = X, y = Y, z = Z}) ->
     %excess internal angle strategy.
     F = fun(X) -> trig:spread_to_angle(X) end,
-    S2 = lists:map(F, spreads(T)),
     Q2 = lists:map(F, quadrances(T)),
-    {A1C, A2C, A3C} = 
-        small_triangle_trio(S2),
+    {A1C, A2C, A3C} = angles(T),
     Area1 = A1C + A2C + A3C - (math:pi()),
     %planar estimation strategy.
     Area2 = planar_area(Q2),
@@ -67,7 +67,55 @@ area(T = #triangle{x = X, y = Y, z = Z}) ->
         (Area1 < 0.00001) -> Area2;
         true -> Area1
     end.
+angles(T = #triangle{}) ->
+    small_triangle_trio(
+      lists:map(
+        fun(X) -> trig:spread_to_angle(X) end,
+        spreads(T))).
+                        
 
+direction(P1, P2) ->
+    North = proj:make_point(0,0,1),
+    Collinear = proj:collinear(P1, P2, North),
+    if
+        Collinear ->
+            Q1 = trig:quadrance_to_distance(quadrance(P1, North)),
+            Q2 = trig:quadrance_to_distance(quadrance(P2, North)),
+            if
+                Q2 > Q1 -> 180;
+                true -> 0
+            end;
+        true ->
+            
+    %L1 = join(P1, P2),
+    %L2 = join(P1, North),
+    %L3 = dual(P1),
+            T = proj:make_trilateral(
+                  proj:dual(P1), 
+                  proj:join(P1, North), 
+                  proj:join(P1, P2)),
+            T2 = proj:trilateral_to_triangle(T),
+            #triangle{x = X, y = Y, z = Z} = T2,
+            %Clockwise = trig:clockwise(X, Y, Z),
+            Clockwise = trig:clockwise(P1, North, P2),
+    %if it is not clockwise, we are turning westeward. 
+    %if it is clockwise, we are turning eastward.
+            A = element(1, angles(T2)),
+            R = case Clockwise of
+                    true -> A * 180 / math:pi();
+                    false -> 
+                        ((math:pi() * 2) - A)
+                            * 180 / math:pi()
+                end,
+            %{X, Y, Z, Clockwise, A*180/math:pi(), R, angles(T2)}
+            R
+                
+    end.
+    %{Clockwise, A}.
+    
+    
+    
+    
 
 test() ->
     P1 = proj:make_point(1, -1, 2),
@@ -87,3 +135,10 @@ test2() ->
                 area(proj:make_triangle(P1, P2, P3))
         end,
     lists:map(F, Ns).
+
+test3() ->
+    P1 = proj:make_point(-4000, 0, 1000), 
+    P2 = proj:make_point(1000, -1000, 1000),
+    direction(P1, P2).
+    
+    

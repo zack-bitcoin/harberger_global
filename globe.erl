@@ -1,7 +1,7 @@
 -module(globe).
 -export([
-         gps_to_rat/2,
-         rat_to_gps/1,
+         gps_to_point/2,
+         point_to_gps/1,
          simplify/1,
          distance/2,
          area/3,
@@ -69,9 +69,9 @@ gps_to_point(Lat, Long) ->
     Z4 = math:sqrt(Z3),
     proj:make_point(round(X4), round(Y4), round(Z4)).
 simplify(L) when is_record(L, line) ->
-    X = P#point.x,
-    Y = P#point.y,
-    Z = P#point.z,
+    X = L#line.x,
+    Y = L#line.y,
+    Z = L#line.z,
     if
         ((X > ?max) 
          or (Y > ?max)
@@ -97,6 +97,10 @@ area(P1, P2, P3) ->
     T = proj:make_triangle(P1, P2, P3),
     A = spherical_trig:area(T),
     A * ?radius * ?radius.
+seperation(P1, P2) ->
+    Dir = spherical_trig:direction(P1, P2),
+    Dis = distance(P1, P2),
+    {Dir, Dis}.
 
 test() ->
     B = 1000000,
@@ -105,4 +109,6 @@ test() ->
     P2 = proj:make_point(B, B+S, B),
     P3 = proj:make_point(B+S, B, B),
     {area(P1, P2, P3), distance(P1, P2), 
-     distance(P2, P3), distance(P3, P1)}.
+     distance(P2, P3), distance(P3, P1),
+     seperation(P1, P3)}.
+    

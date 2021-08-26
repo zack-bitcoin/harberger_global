@@ -1,5 +1,6 @@
 -module(trig).
--export([test/0, spread/2, spread_to_angle/1]).
+-export([test/0, spread/2, spread_to_angle/1,
+         clockwise/3, quadrance_to_distance/1]).
 -record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers
 -record(vector, {x, y}).%2 rationals
@@ -13,6 +14,34 @@ test() ->
 
     {V1, V2,
      sub(V1, V2)}.
+
+slope(#vector{x = X, y = Y}) ->
+    D = rat:divide(Y, X),
+    B = rat:bottom(D),
+    T = rat:top(D),
+    if
+        ((B == 0) and T > 0) -> 10000000000000;
+        (B == 0) -> -1000000000000000;
+        true ->
+            rat:to_float(rat:divide(Y, X))
+    end.
+
+clockwise(P1, P2, P3) ->
+    V1 = point_to_vector(P1),
+    V2 = point_to_vector(P2),
+    V3 = point_to_vector(P3),
+    W1 = sub(V3, V2),%vector from 2 to 3
+    W2 = sub(V1, V3),%from 3 to 1
+    W3 = sub(V2, V1),%from 1 to 2
+
+    %io:fwrite({W3, W1}),
+    S3 = slope(W3),
+    A3 = math:atan(S3),
+    S1 = slope(W1),
+    A1 = math:atan(S1),
+    
+    (A1 - A3) > 0.
+    
 
 vector_to_point(#vector{x = X, y = Y}) ->
     YB = rat:bottom(Y),

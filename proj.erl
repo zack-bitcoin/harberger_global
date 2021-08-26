@@ -3,7 +3,7 @@
          make_trilateral/3,
          triangle_to_trilateral/1,
          trilateral_to_triangle/1,
-         join/2, meet/2,
+         join/2, meet/2, collinear/3,
          make_point/3]).
 
 -record(point, {x, y, z}).
