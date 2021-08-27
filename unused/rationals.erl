@@ -177,13 +177,13 @@ test() ->
      (gps_to_rat(15,210)),%B
      (gps_to_rat(-15,30)),%B
      (gps_to_rat(-15,210))%A
-    },
-    
-    {distance(gps_to_rat(1, 1), 
-              gps_to_rat(1, 1.0000001)),
-     short_distance(gps_to_rat(1, 1), 
-                    gps_to_rat(1, 1.00000010))
     }.
+    
+    %{distance(gps_to_rat(1, 1), 
+    %          gps_to_rat(1, 1.0000001)),
+    % short_distance(gps_to_rat(1, 1), 
+    %                gps_to_rat(1, 1.00000010))
+    %}.
 
 test3() ->
     

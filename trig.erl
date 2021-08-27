@@ -31,17 +31,9 @@ clockwise(P1, P2, P3) ->
     V2 = point_to_vector(P2),
     V3 = point_to_vector(P3),
     W1 = sub(V3, V2),%vector from 2 to 3
-    W2 = sub(V1, V3),%from 3 to 1
+    %W2 = sub(V1, V3),%from 3 to 1
     W3 = sub(V2, V1),%from 1 to 2
-
-    %io:fwrite({W3, W1}),
-    S3 = slope(W3),
-    A3 = math:atan(S3),
-    S1 = slope(W1),
-    A1 = math:atan(S1),
-    
-    (A1 - A3) > 0.
-    
+    rat:positive(determinate(W1, W3)).
 
 vector_to_point(#vector{x = X, y = Y}) ->
     YB = rat:bottom(Y),
@@ -99,11 +91,13 @@ perpendicular(V1, V2) ->
     rat:zero(dot(V1, V2)).
 
 make_perp(#vector{x = X, y = Y}) ->
-    #vector{x = -Y, y = X}.
+    %#vector{x = rat:negative(Y), y = X}.
+    #vector{x = Y, y = rat:negative(X)}.
 
 determinate(V1 = #vector{}, 
             V2 = #vector{}) ->
     dot(V1, make_perp(V2)).
+    %dot(make_perp(V1), V2).
 
 determinate(V1 = #vector3{x = X1, y = Y1, z = Z1},
             V2 = #vector3{x = X2, y = Y2, z = Z2},
@@ -147,27 +141,14 @@ parallel(V1 = #vector3{},
 quadrance_to_distance(R) -> 
     math:sqrt(rat:to_float(R)).
 
-%quadrance(P1, P2) 
-%  when (is_record(P1, point),
-%        is_record(P2, point)) ->
-%    V1 = point_to_vector(P1),
-%    V2 = point_to_vector(P2),
-%    V = sub(V1, V2),
-%    quadrance(V).
-
 quadrance(V) ->
     dot(V, V).
-%spread(P1 = #point{}, P2 = #point{}) ->
-%    V1 = point_to_vector(P1),
-%    V2 = point_to_vector(P2),
-%    spread(V1, V2).
 spread(V1, V2) ->
 %    D = determinate(V1, V2),
 %    rat:make(D*D,
 %             quadrance(V1) *
 %                 quadrance(V2)).
     D = dot(V1, V2),
-    %io:fwrite({D, quadrance(V1), quadrance(V2)}),
     rat:sub(
       rat:make(1, 1),
       rat:divide(rat:mul(D, D), 

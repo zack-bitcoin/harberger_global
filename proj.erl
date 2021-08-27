@@ -4,7 +4,7 @@
          triangle_to_trilateral/1,
          trilateral_to_triangle/1,
          join/2, meet/2, collinear/3,
-         make_point/3]).
+         make_point/3, make_line/3]).
 
 -record(point, {x, y, z}).
 -record(line, {x, y, z}).
@@ -31,120 +31,85 @@ gcd(A, B, C) ->
 
 %rules for generating the basic data structures
 make_point(X, Y, Z) ->
-    G = gcd(X, Y, Z),
-    #point{x = X div G, 
-           y = Y div G, 
-           z = Z div G}.
+    P = #point{x = X, y = Y, z = Z},
+    simplify(P).
 make_line(X, Y, Z) ->
     dual(make_point(X, Y, Z)).
-make_triangle(P1, P2, P3) ->
-    true = is_record(P1, point),
-    true = is_record(P2, point),
-    true = is_record(P3, point),
+make_triangle(P1 = #point{}, P2 = #point{}, 
+              P3 = #point{}) ->
     #triangle{p1 = P1, p2 = P2, p3 = P3}.
 make_trilateral(L1, L2, L3) ->
     dual(make_triangle(
-           dual(L1), 
-           dual(L2), 
-           dual(L3))).
-
-%concept of duality from projective geometry
-dual(X) when is_record(X, line) ->
-    #point{x = X#line.x,
-           y = X#line.y,
-           z = X#line.z};
-dual(X) when is_record(X, point)->
-    #line{x = X#point.x,
-          y = X#point.y,
-          z = X#point.z};
-dual(X) when is_record(X, triangle)->
-    #trilateral{l1 = dual(X#triangle.p1),
-                l2 = dual(X#triangle.p2),
-                l3 = dual(X#triangle.p3)};
-dual(X) when is_record(X, trilateral)->
-    #triangle{p1 = dual(X#trilateral.l1),
-              p2 = dual(X#trilateral.l2),
-              p3 = dual(X#trilateral.l3)}.
-
+           dual(L1), dual(L2), dual(L3))).
+simplify(#point{x = X, y = Y, z = Z}) ->
+    G = gcd(X, Y, Z),
+    #point{x = X div G, 
+           y = Y div G, 
+           z = Z div G};
+simplify(L = #line{}) ->
+    dual(simplify(dual(L))).
+    
+dual(#line{x = X, y = Y, z = Z}) ->
+    #point{x = X, y = Y, z = Z};
+dual(#point{x = X, y = Y, z = Z})->
+    #line{x = X, y = Y, z = Z};
+dual(#triangle{p1 = X, p2 = Y, p3 = Z}) ->
+    #trilateral{l1 = dual(X), l2 = dual(Y), 
+                l3 = dual(Z)};
+dual(#trilateral{l1 = X, l2 = Y, l3 = Z})->
+    #triangle{p1 = dual(X), p2 = dual(Y), 
+              p3 = dual(Z)}.
  %operations on lines and points
-meet(L1, L2) ->
-    %lines meet at a point.
-    X = (L1#line.y * L2#line.z) - 
-        (L2#line.y * L1#line.z),
-    Y = (L1#line.z * L2#line.x) - 
-        (L2#line.z * L1#line.x),
-    Z = (L1#line.x * L2#line.y) -
-        (L2#line.x * L1#line.y),
-    %Z = (L2#line.x * L1#line.y) - 
-    %    (L1#line.x * L2#line.y),
-    make_point(X,Y,Z).
+equal(P1, P2) -> simplify(P1) == simplify(P2).
+meet(#line{x = X1, y = Y1, z = Z1}, 
+     #line{x = X2, y = Y2, z = Z2}) ->
+    make_point((Y1 * Z2) - (Y2 * Z1),
+               (Z1 * X2) - (Z2 * X1),
+               (X1 * Y2) - (X2 * Y1)).
 join(P1, P2) ->
     %points can be joined to form a line.
     dual(meet(dual(P1), dual(P2))).
-lies_on(A, L) ->
-    %rule to know if a point is inside of a line.
-    (L#line.x * A#point.x) +
-        (L#line.y * A#point.y) -
-        (L#line.z * A#point.z).
-incident(A, B) when is_record(A, point) ->
-    lies_on(A, B);
-incident(A, B) when is_record(B, point) ->
-    lies_on(B, A).
+incident(#point{x = A, y = B, z = C},
+        #line{x = X, y = Y, z = Z}) ->
+    ((A*X) + (B*Y) + (C*Z)) == 0;
+incident(L = #line{}, P = #point{}) ->
+    incident(P, L).
+determinate(#point{x = X1, y = Y1, z = Z1},
+            #point{x = X2, y = Y2, z = Z2},
+            #point{x = X3, y = Y3, z = Z3}) ->
+    ((X1*Y2*Z3) + (Y1*Z2*X3) + (Z1*X2*Y3)) - 
+        ((X3*Y2*Z1) + (Y3*Z2*X1) + (Z3*X2*Y1));
+determinate(L1 = #line{}, L2 = #line{}, 
+            L3 = #line{}) ->
+    determinate(dual(L1), dual(L2), dual(L3)).
 concurrent(L, M, N) ->%if 3 lines are concurrent, returns true.
     %if the determinant is 0, then the lines are concurrent.
-    (L#line.z * ((M#line.x * N#line.y) - 
-                     (M#line.y * N#line.x))) +
-        (M#line.z * ((N#line.x * L#line.y) - 
-                         (N#line.y * L#line.x))) -
-        (N#line.z * ((M#line.x * L#line.y) - 
-                         (M#line.y * L#line.x))) 
-        == 0.
+    determinate(L, M, N) == 0.
 collinear(L, M, N) ->%if 3 points are on the same line, returns true.
-    concurrent(dual(L), dual(M), dual(N)).
+    %concurrent(dual(L), dual(M), dual(N)).
+    determinate(L, M, N) == 0.
 perpendicular(L1, L2)->
     incident(dual(L1), L2).
-
-
-%operations on triangles
-others(1) -> {2, 3};
-others(2) -> {3, 1};
-others(3) -> {1, 2}.
-triangle_point(1, T) -> T#triangle.p1;
-triangle_point(2, T) -> T#triangle.p2;
-triangle_point(3, T) -> T#triangle.p3.
-triangle_line(N, T) ->
-    %one of the lines made by joining 2 points of a triangle.
-    {A, B} = others(N),
-    join(triangle_point(A, T),
-         triangle_point(B, T)).
-triangle_to_trilateral(T) ->
+triangle_to_trilateral(
+  #triangle{p1 = X, p2 = Y, p3 = Z}) ->
     %switch to encoding based on lines instead of points.
-    make_trilateral(
-      triangle_line(1, T),
-      triangle_line(2, T),
-      triangle_line(3, T)).
+    #trilateral{l1 = join(Y, Z), l2 = join(Z, X), l3 = join(X, Y)}.
 trilateral_to_triangle(T) ->
     %switch to encoding based on points instead of lines.
     dual(triangle_to_trilateral(dual(T))).
-%triangle_side(N, T) ->
-%    {A, B} = others(N),
-%    make_side(triangle_point(A, T),
-%              triangle_point(B, T)).
-%triangle_vertex(N, T) ->
-%    dual(triangle_side(N, T)).
-
-altitude(N, T) ->
-    join(triangle_point(N, T), 
-         dual(triangle_line(N, T))).
-altitude_point(N, T) ->
-    dual(altitude(N, T)).
-base_point(N, T) -> %base of an altitude
-    meet(altitude(N, T),
-         triangle_line(N, T)).
-orthic_triangle(T) ->
-    X = base_point(1, T),
-    Y = base_point(2, T),
-    Z = base_point(3, T),
+altitudes(T = #triangle{p1 = X, p2 = Y, p3 = Z}) ->
+    #trilateral{l1 = A, l2 = B, l3 = C} = 
+        triangle_to_trilateral(T),
+    F = fun(P, L) -> join(P, dual(L)) end,
+    [F(X, A), F(Y, B), F(Z, C)].
+altitude_points(T) ->
+    lists:map(dual, altitudes(T)).
+base_points(
+  T = #triangle{p1 = X, p2 = Y, p3 = Z})->
+    [A1, A2, A3] = altitudes(T),
+    [meet(A1, X), meet(A2, Y), meet(A3, Z)].
+orthic_triangle(T = #triangle{}) ->
+    [X, Y, Z] = base_points(T),
     make_triangle(X, Y, Z).
 dual_orthic_triangle(T) ->
     X = orthic_triangle(T),
@@ -157,25 +122,19 @@ base_center(T) ->
     B = join(T#triangle.p2, C#triangle.p2),
     meet(A, B).
 
-orthocenter(T) ->
+orthocenter(T = #triangle{}) ->
     %altitudes of the triangle are concurrent at a point.
-    A1 = altitude(1, T),
-    A2 = altitude(2, T),
+    [A1, A2, _] = altitudes(T),
     meet(A1, A2).
 ortholine(T) ->
     dual(orthocenter(T)).
-   
-dual_triangle_helper(N, T) ->
-    %if point N of a triangle is dual the opposite side, return true.
-    {A, B} = others(N),
-    dual(triangle_point(N, T)) == 
-        join(triangle_point(A, T),
-             triangle_point(B, T)).
-dual_triangle(T) ->
-    %if any point is dual the opposite side, returns true.
-    dual_triangle_helper(1, T)
-        or dual_triangle_helper(2, T)
-        or dual_triangle_helper(3, T).
+dual_triangle(
+  T = #triangle{p1 = X, p2 = Y, p3 = Z}) ->
+    #trilateral{l1 = A, l2 = B, l3 = C} =
+        triangle_to_trilateral(T),
+    equal(dual(X), A) or
+        equal(dual(Y), B) or
+        equal(dual(Z), C).
 desargues_polar(T, P) ->
     %calculating the polar of a triangle (a line) with respect to the pole P (a point).
     %Cevian lines
@@ -184,10 +143,8 @@ desargues_polar(T, P) ->
     C3 = join(T#triangle.p3, P),
 
     %sides of triangle T
-    S1 = triangle_line(1, T),
-    S2 = triangle_line(2, T),
-    S3 = triangle_line(3, T),
-    
+    #trilateral{l1 = S1, l2 = S2, l3 = S3} = 
+        triangle_to_trilateral(T),
     B1 = meet(C1, S1),
     B2 = meet(C2, S2),
     B3 = meet(C3, S3),

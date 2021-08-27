@@ -1,5 +1,6 @@
 -module(spherical_trig).
 -export([test/0, test2/0, test3/0,
+         test4/0,
          quadrance/2, area/1,
          direction/2]).
 
@@ -68,7 +69,7 @@ area(T = #triangle{x = X, y = Y, z = Z}) ->
         true -> Area1
     end.
 angles(T = #triangle{}) ->
-    small_triangle_trio(
+    small_triangle_trio(%instead, use the order of points to choose the 3 angles.
       lists:map(
         fun(X) -> trig:spread_to_angle(X) end,
         spreads(T))).
@@ -86,33 +87,38 @@ direction(P1, P2) ->
                 true -> 0
             end;
         true ->
-            
-    %L1 = join(P1, P2),
-    %L2 = join(P1, North),
-    %L3 = dual(P1),
             T = proj:make_trilateral(
                   proj:dual(P1), 
                   proj:join(P1, North), 
                   proj:join(P1, P2)),
             T2 = proj:trilateral_to_triangle(T),
             #triangle{x = X, y = Y, z = Z} = T2,
-            %Clockwise = trig:clockwise(X, Y, Z),
             Clockwise = trig:clockwise(P1, North, P2),
     %if it is not clockwise, we are turning westeward. 
     %if it is clockwise, we are turning eastward.
             A = element(1, angles(T2)),
-            R = case Clockwise of
-                    true -> A * 180 / math:pi();
-                    false -> 
-                        ((math:pi() * 2) - A)
-                            * 180 / math:pi()
+            %A2 = math:pi() - A,
+            F = fun(V) ->
+                     case Clockwise of
+                         true -> 
+                             V * 180 / math:pi();
+                         false ->
+                             ((math:pi() * 2) - V)
+                                 * 180 / math:pi()
+                     end
                 end,
-            %{X, Y, Z, Clockwise, A*180/math:pi(), R, angles(T2)}
-            R
+            %{F(A), F(A2)}
+            F(A)
+%            io:fwrite({A, A2}),
+%R = case Clockwise of
+%                    true -> A * 180 / math:pi();
+%                    false -> 
+%                        ((math:pi() * 2) - A)
+%                            * 180 / math:pi()
+%                end,
+%            R
                 
     end.
-    %{Clockwise, A}.
-    
     
     
     
@@ -140,5 +146,14 @@ test3() ->
     P1 = proj:make_point(-4000, 0, 1000), 
     P2 = proj:make_point(1000, -1000, 1000),
     direction(P1, P2).
+test4() ->
+%{globe:gps_to_point({50,0}), globe:gps_to_point({50,10})}.
+%{{point,0,-8391,10000},{point,1457,-8264,10000}}
+    %spherical_trig:direction({point,0,-8391,10000},{point,1457,-8264,10000}).%93.8? should be like 87.2
+    %spherical_trig:direction({point,0,-9,10},{point,1,-8,10}).%93.8? should be like 87.2
+    spherical_trig:direction(
+      {point,-5446,3459,5000},
+      {point,-6517,3501,5000}).%is 43. should be like 140.
+    
     
     

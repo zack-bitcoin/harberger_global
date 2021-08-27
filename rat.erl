@@ -4,6 +4,7 @@
          add/3, mul/3, negative/1,
          scalar_mul/2, gcf/2,
          zero/1, to_float/1,
+         positive/1,
          equal/2]).
 
 -record(number, {t, b}).
@@ -19,6 +20,9 @@ to_float(Z) ->
     Z#number.t / Z#number.b.
 zero(X) ->
     X#number.t == 0.
+
+positive(X) ->
+    (X#number.t * X#number.b) > 0.
 
 equal(R1, R2) ->
     (R1#number.t * R2#number.b) ==
