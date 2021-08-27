@@ -1,11 +1,9 @@
 -module(spherical_trig).
+%trigonometry on the surface of a sphere.
 -export([test/0, test2/0, test3/0,
          test4/0,
          quadrance/2, area/1,
          direction/2]).
-
-%todo. maybe we should calculate the direction to walk to get from one point to another.
-
 -record(point, {x, y, z}).%3 integers
 -record(vector3, {x, y, z}).%3 rationals
 -record(triangle, {x, y, z}).%3 points

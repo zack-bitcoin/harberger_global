@@ -1,4 +1,7 @@
 -module(rat).
+
+%rational numbers library.
+
 -export([make/2, top/1, bottom/1, 
          add/2, sub/2, mul/2, divide/2,
          add/3, mul/3, negative/1,

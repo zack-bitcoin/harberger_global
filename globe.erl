@@ -1,4 +1,5 @@
 -module(globe).
+%distances, areas, and directions between points on earth.
 -export([gps_to_point/1, point_to_gps/1,
          simplify/1,
          distance/2, area/3, seperation/2,
@@ -7,7 +8,7 @@
 
 -define(radius, 6371000). 
 -define(max, 4294967295).
-%-define(max, 10000).
+%-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
 
 -record(point, {x, y, z}).
 -record(line, {x, y, z}).
@@ -158,6 +159,5 @@ test2() ->
       seperation(Melbourne, Tokyo)
      },
     F3.
-%{Tokyo, Melbourne, LosAngeles}.
      
 

@@ -1,4 +1,5 @@
 -module(proj).
+%projective geometry library.
 -export([dual/1, make_triangle/3, 
          make_trilateral/3,
          triangle_to_trilateral/1,

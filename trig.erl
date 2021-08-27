@@ -1,4 +1,5 @@
 -module(trig).
+%planar trigonometry over the rationals.
 -export([test/0, spread/2, spread_to_angle/1,
          clockwise/3, quadrance_to_distance/1]).
 -record(line, {x, y, z}).%3 integers
@@ -89,40 +90,11 @@ perpendicular(V1, V2) ->
     %Q1 + Q2 = Q3
     %spread is one.
     rat:zero(dot(V1, V2)).
-
-make_perp(#vector{x = X, y = Y}) ->
-    %#vector{x = rat:negative(Y), y = X}.
-    #vector{x = Y, y = rat:negative(X)}.
-
-determinate(V1 = #vector{}, 
-            V2 = #vector{}) ->
-    dot(V1, make_perp(V2)).
-    %dot(make_perp(V1), V2).
-
-determinate(V1 = #vector3{x = X1, y = Y1, z = Z1},
-            V2 = #vector3{x = X2, y = Y2, z = Z2},
-            V3 = #vector3{x = X3, y = Y3, z = Z3}) ->
-    rat:sub(
-      rat:add(rat:mul(X1, Y2, Z3),
-              rat:mul(Y1, Z2, X3),
-              rat:mul(Z1, X2, Y3)),
-      rat:add(rat:mul(X3, Y2, Z2),
-              rat:mul(Y3, Z2, X1),
-              rat:mul(Z3, X2, Y1))).
-
-
-project_z(#vector3{x = X, y = Y}) ->
-    #vector{x = X, y = Y}.
-project_y(#vector3{x = X, z = Z}) ->
-    #vector{x = Z, y = X}.
-project_x(#vector3{y = Y, z = Z}) ->
-    #vector{x = Y, y = Z}.
 parallel(V1 = #vector{}, 
          V2 = #vector{}) ->
     %v3 = v2 - v1
     %(Q1 + Q2 + Q3)^2 = 2*(Q1^2 + Q2^2 + Q3^2)
     %spread is zero for rationals.
-
     %perpendicular(V1, make_perp(V2)).
     rat:zero(determinate(V1, V2));
 parallel(V1 = #vector3{},
@@ -137,10 +109,40 @@ parallel(V1 = #vector3{},
     B3 = parallel(project_z(V1),
                   project_z(V2)),
     B1 and B2 and B3.
+
+make_perp(#vector{x = X, y = Y}) ->
+    %#vector{x = rat:negative(Y), y = X}.
+    %90 degree turn right.
+    #vector{x = Y, y = rat:negative(X)}.
+
+
+
+determinate(V1 = #vector{}, 
+            V2 = #vector{}) ->
+    dot(V1, make_perp(V2)).
+    %dot(make_perp(V1), V2).
+
+determinate(V1 = #vector3{x = X1, y = Y1, z = Z1},
+            V2 = #vector3{x = X2, y = Y2, z = Z2},
+            V3 = #vector3{x = X3, y = Y3, z = Z3}) ->
+    rat:sub(
+      rat:add(rat:mul(X1, Y2, Z3),
+              rat:mul(Y1, Z2, X3),
+              rat:mul(Z1, X2, Y3)),
+      rat:add(rat:mul(X3, Y2, Z1),
+              rat:mul(Y3, Z2, X1),
+              rat:mul(Z3, X2, Y1))).
+
+
+project_z(#vector3{x = X, y = Y}) ->
+    #vector{x = X, y = Y}.
+project_y(#vector3{x = X, z = Z}) ->
+    #vector{x = Z, y = X}.
+project_x(#vector3{y = Y, z = Z}) ->
+    #vector{x = Y, y = Z}.
      
 quadrance_to_distance(R) -> 
     math:sqrt(rat:to_float(R)).
-
 quadrance(V) ->
     dot(V, V).
 spread(V1, V2) ->
@@ -168,8 +170,6 @@ spread_to_angle(R) ->
     Y = math:asin(X),
     Y2 = math:pi() - Y,
     {Y, Y2}.
-%min(math:asin(X),
-%        math:asin(X2)).
     
 cross_law(Q1, Q2, Q3) ->
     %returns spread3
