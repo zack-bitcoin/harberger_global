@@ -1,7 +1,6 @@
 -module(spherical_trig2).
 -export([test/0, area/1, quadrance/2,
-        direction/2, quadrances/1, angles/1,
-         v_xor/2
+        direction/2, quadrances/1, angles/1
         ]).
 
 -record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
@@ -19,15 +18,6 @@
 xor_rat(R = #srat{s = S}, V) ->
     R#srat{s = S xor V}.
  
-    %if 2 points of a triangle are on opposite sides of the equator, then the lunes defined by the dual lines, they do not contain the poles.
-    %if the lunes that spread from 2 points on a triangle both contain poles, 
-    
-
-polar(T = #triangle{}) ->
-    %for points p1 p2. v1 = p2-p1. v2 = north_pole - p2. if we are turning clockwise, then this line contains the north pole.
-    %triangle of points, not spoints.
-    T2 = proj:triangle_to_trilateral(T),
-    proj:dual(T2).
 quadrance(P1 = #point{}, P2 = #point{}) ->
     V1 = trig:point_to_3vector(P1),
     V2 = trig:point_to_3vector(P2),
@@ -75,37 +65,35 @@ v_xor([H|[I|T]]) ->
     v_xor([v_xor(H, I)|T]).
 v_xor([A, B, C], [D, E, F]) ->
     [A xor D, B xor E, C xor F].
-roll([A, B, C]) ->
-    [B xor C, A xor C, A xor B].
--define(true_v, [true, true, true]).
--define(false_v, [false, false, false]).
 flip([]) -> [];
-flip([B|R]) -> 
-    [not(B)|flip(R)].
-spreads(T = #triangle{
-          x = #spoint{s = L, point = P1},
-          y = #spoint{s = M, point = P2},
-          z = #spoint{s = N, point = P3}}) ->
+flip([B|R]) -> [not(B)|flip(R)].
+flip_if(true, V) -> flip(V);
+flip_if(false, V) -> V.
+    
+tri_to_signs(#triangle{x = #spoint{s = A},
+                       y = #spoint{s = B},
+                       z = #spoint{s = C}}) ->
+    [A, B, C];
+tri_to_signs(#trilateral{x = #sline{s = A},
+                         y = #sline{s = B},
+                         z = #sline{s = C}}) ->
+    [A, B, C].
+even_tri([A, B, C]) ->
+    not(A xor B xor C).
+spreads(T = #triangle{}) ->
+    LMN = tri_to_signs(T),
     Trilat = triangle_to_trilateral(T),
     Polar = dual(Trilat),
-    #trilateral{x = #sline{line = L1, s = J}, 
-                y = #sline{line = L2, s = K}, 
-                z = #sline{line = L3, s = O}} =
-        triangle_to_trilateral(Polar),
-    #trilateral{x = #sline{s = P}, 
-                y = #sline{s = Q}, 
-                z = #sline{s = R}} =
-        Trilat,
     [Q1, Q2, Q3] = quadrances(Polar),
-    [D,E,F] = v_xor([[L, M, N], 
-                     [J, K, O], 
-                     [P, Q, R]]),
-    OddTriangle = L xor M xor N,
-    [D2, E2, F2] = 
-        if
-            OddTriangle -> [D,E,F];
-            true -> flip([D, E, F])
-        end,
+    DEF = 
+        v_xor(
+          [LMN, 
+           tri_to_signs(
+             triangle_to_trilateral(Polar)),
+           tri_to_signs(Trilat)
+          ]),
+    [D2, E2, F2] = flip_if(even_tri(LMN),
+                           DEF),
     [xor_rat(Q1, D2),
      xor_rat(Q2, E2),
      xor_rat(Q3, F2)].
