@@ -4,7 +4,7 @@
          make_trilateral/3,
          triangle_to_trilateral/1,
          trilateral_to_triangle/1,
-         join/2, meet/2, collinear/3,
+         join/2, collinear/3,
          make_point/3, make_line/3]).
 
 -record(point, {x, y, z}).
@@ -89,12 +89,13 @@ concurrent(L, M, N) ->%if 3 lines are concurrent, returns true.
 collinear(L, M, N) ->%if 3 points are on the same line, returns true.
     %concurrent(dual(L), dual(M), dual(N)).
     determinate(L, M, N) == 0.
-perpendicular(L1, L2)->
-    incident(dual(L1), L2).
+perpendicular(L1, L2)-> incident(dual(L1), L2).
 triangle_to_trilateral(
   #triangle{p1 = X, p2 = Y, p3 = Z}) ->
     %switch to encoding based on lines instead of points.
-    #trilateral{l1 = join(Y, Z), l2 = join(Z, X), l3 = join(X, Y)}.
+    #trilateral{l1 = join(Y, Z), 
+                l2 = join(Z, X), 
+                l3 = join(X, Y)}.
 trilateral_to_triangle(T) ->
     %switch to encoding based on points instead of lines.
     dual(triangle_to_trilateral(dual(T))).
@@ -154,16 +155,11 @@ desargues_polar(T, P) ->
          meet(S2,join(B1, B3))).
          
 orthic_axis(T) ->
-    C = orthocenter(T),
-    desargues_polar(T, C).
-orthostar(T) ->
-    dual(orthic_axis(T)).
+    desargues_polar(T, orthocenter(T)).
+orthostar(T) -> dual(orthic_axis(T)).
 ortho_axis(T) ->
     %most important line in hyperbolic triangle geometry.
-    C = orthocenter(T),
-    join(C, orthostar(T)).
+    join(orthocenter(T), orthostar(T)).
     %ortho_axis passes through the base_center of T.
 ortho_axis_point(T) ->
     dual(ortho_axis(T)).
-
-

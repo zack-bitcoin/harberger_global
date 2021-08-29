@@ -1,14 +1,15 @@
 -module(globe).
 %distances, areas, and directions between points on earth.
--export([gps_to_point/1, point_to_gps/1,
+-export([
+         gps_to_point/1, point_to_gps/1,
          simplify/1,
          distance/2, area/3, seperation/2,
          test/0, test2/0
 ]).
 
 -define(radius, 6371000). 
--define(max, 4294967295).
-%-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
+%-define(max, 4294967295).
+-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
 
 -record(point, {x, y, z}).
 -record(line, {x, y, z}).
@@ -52,12 +53,10 @@ gps_to_point({Lat, Long}) ->
 
     X = A1 * X_over_A1,
     Y = A1 * Y_over_A1,
-    %Y = A1 * X_over_A1,
-    %X = A1 * Y_over_A1,
     simplify(proj:make_point(
                round(X), round(Y), round(Z))).
 
-simplify(L) when is_record(L, point) ->
+simplify(L = #point{}) ->
     proj:dual(simplify(proj:dual(L)));
 simplify(L) when is_record(L, line) ->
     X = L#line.x,
@@ -74,7 +73,6 @@ simplify(L) when is_record(L, line) ->
         true -> proj:make_line(X, Y, Z)
     end.
 div2(X) ->
-    R = X rem 2,
     case X of
         1 -> 1;
         -1 -> -1;
@@ -90,20 +88,16 @@ area(P1, P2, P3) ->
     A = spherical_trig:area(T),
     A * ?radius * ?radius.
 seperation(P1, P2) ->
-    %Dir = (spherical_trig:direction(P1, P2)-180),
-    %Dir = 360-(spherical_trig:direction(P1, P2)),
-    %Dir = (spherical_trig:direction(P1, P2))-180,
     Dir = (spherical_trig:direction(P1, P2)),
     Dis = distance(P1, P2),
     Dis2 = (math:pi() * ?radius) - Dis,
-    Dir2 = Dir - 180,
-    Dir0 = if
-               Dir > 180 ->
-                   Dir - 360;
-               true -> Dir
-           end,
-    {{Dir0, Dis}, {Dir2, Dis2}}.
-
+    %Dir2 = Dir - 180,
+    %Dir0 = if
+    %           Dir > 180 ->
+    %               Dir - 360;
+    %           true -> Dir
+    %       end,
+    {{Dir, Dis}, {Dir, Dis2}}.
 test() ->
     B = 1000000,
     S = 1,
@@ -155,8 +149,13 @@ test2() ->
       seperation(Melbourne, Tokyo)
      },
     F3 = {
-    seperation(Tokyo, Melbourne),
-      seperation(Melbourne, Tokyo)
+    %  Tokyo, LosAngeles,
+    %seperation(Tokyo, LosAngeles),
+    %seperation(LosAngeles, Tokyo),
+    %  seperation(Tokyo, Melbourne),
+    %  seperation(Melbourne, Tokyo),%bad
+      seperation(LosAngeles, SF),
+    seperation(SF, LosAngeles)%bad
      },
     F3.
      

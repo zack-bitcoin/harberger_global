@@ -32,4 +32,5 @@ We need a second merkle tree to keep track of bids. Where people make offers to 
 
 We need a way for someone to post a combination of bids, and show that the resulting change of ownerships will result in the land having higher value, and this makes the ownerships all change.
 
-We need a way for someone to show that reorganizing the merkle tree of land ownership can make it more balanced, so merkle proofs can be shorter on average. 
+We need a way for someone to show that reorganizing the merkle tree of land ownership can make it more balanced, so merkle proofs can be shorter on average.
+
