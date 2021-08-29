@@ -70,30 +70,29 @@ flip([B|R]) -> [not(B)|flip(R)].
 flip_if(true, V) -> flip(V);
 flip_if(false, V) -> V.
     
-tri_to_signs(#triangle{x = #spoint{s = A},
-                       y = #spoint{s = B},
-                       z = #spoint{s = C}}) ->
+tri_to_signs(#triangle{
+                x = #spoint{s = A},
+                y = #spoint{s = B},
+                z = #spoint{s = C}}) ->
     [A, B, C];
-tri_to_signs(#trilateral{x = #sline{s = A},
-                         y = #sline{s = B},
-                         z = #sline{s = C}}) ->
+tri_to_signs(#trilateral{
+                x = #sline{s = A},
+                y = #sline{s = B},
+                z = #sline{s = C}}) ->
     [A, B, C].
 even_tri([A, B, C]) ->
     not(A xor B xor C).
 spreads(T = #triangle{}) ->
-    LMN = tri_to_signs(T),
     Trilat = triangle_to_trilateral(T),
     Polar = dual(Trilat),
     [Q1, Q2, Q3] = quadrances(Polar),
-    DEF = 
-        v_xor(
-          [LMN, 
-           tri_to_signs(
-             triangle_to_trilateral(Polar)),
-           tri_to_signs(Trilat)
-          ]),
-    [D2, E2, F2] = flip_if(even_tri(LMN),
-                           DEF),
+    LMN = tri_to_signs(T),
+    DEF = v_xor([LMN, 
+                 tri_to_signs(
+                   triangle_to_trilateral(Polar)),
+                 tri_to_signs(Trilat)
+                ]),
+    [D2, E2, F2] = flip_if(even_tri(LMN), DEF),
     [xor_rat(Q1, D2),
      xor_rat(Q2, E2),
      xor_rat(Q3, F2)].
@@ -112,19 +111,16 @@ planar_area([A1, A2, A3]) ->
 area(T = #triangle{}) ->
     [A1C, A2C, A3C] = angles(T),
     Area1 = A1C + A2C + A3C - (math:pi()),
-    F = fun(#srat{rat = X, s = S}) -> 
-                {A1, A2} = trig:spread_to_angle(X),
-                if
-                    S -> A1;
-                    true -> A2
-                end
-        end,
-    Q2 = lists:map(F, quadrances(T)),
+    Q2 = spreads_to_angles(quadrances(T)),
     Area2 = planar_area(Q2),
     if
         (Area1 < 0.00001) -> Area2;
         true -> Area1
     end.
+spreads_to_angles([]) -> [];
+spreads_to_angles([H|T]) -> 
+    [spread_to_angle(H)|
+     spreads_to_angles(T)].
 spread_to_angle(#srat{rat = R, s = Big}) ->
     {A1, A2} = trig:spread_to_angle(R),
     if
@@ -132,11 +128,7 @@ spread_to_angle(#srat{rat = R, s = Big}) ->
         true -> A2
     end.
 angles(T = #triangle{}) ->
-    S = spreads(T),
-    F = fun(X) ->
-                spread_to_angle(X)
-        end,
-    lists:map(F, S).
+    spreads_to_angles(spreads(T)).
 direction(P1 = #spoint{point = U1, s = S1}, 
           P2 = #spoint{point = U2, s = S2}) ->
     NP = proj:make_point(0,0,1),
@@ -152,14 +144,6 @@ direction(P1 = #spoint{point = U1, s = S1},
     end.
             
 
-shared_element([A1, A2], [B1, B2]) ->
-    if
-        (abs(A1 - B1) < 0.1) -> A1;
-        (abs(A1 - B2) < 0.1) -> A1;
-        (abs(A2 - B1) < 0.1) -> A2;
-        (abs(A2 - B2) < 0.1) -> A2
-    end.
-            
 
 test() ->
     B = 1000,
@@ -203,11 +187,11 @@ test() ->
      direction(P1, P2),%should be 195
      direction(Tokyo, Mel),%
      direction(Sydney, Mel),%
-     direction(Mel, Tokyo)%
+     direction(Mel, Tokyo),%
       %spherical_trig:direction(remove_sign(P1), remove_sign(P2)),
      %spherical_trig:direction(remove_sign(P2), remove_sign(P1))
-     %spherical_trig:area(remove_sign(T)),
-     %area(T)
+      %spherical_trig:area(remove_sign(T)),
+     area(T)
     }.
     
     
