@@ -1,11 +1,7 @@
 -module(proj).
 %projective geometry library.
--export([dual/1, make_triangle/3, 
-         make_trilateral/3,
-         triangle_to_trilateral/1,
-         trilateral_to_triangle/1,
-         join/2, collinear/3,
-         make_point/3, make_line/3]).
+-export([dual/1, join/2, make_point/3, 
+         make_line/3]).
 
 -record(point, {x, y, z}).
 -record(line, {x, y, z}).

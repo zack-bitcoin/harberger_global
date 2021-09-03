@@ -1,165 +1,173 @@
 -module(spherical_trig).
-%trigonometry on the surface of a sphere.
--export([test/0, test2/0, test3/0,
-         test4/0,
-         quadrance/2, area/1,
-         direction/2,
-         quadrances/1,
+-export([area/1, quadrance/2,direction/2, 
+         test/0, test2/0]).
 
-        angles/1]).
--record(point, {x, y, z}).%3 integers
--record(triangle, {x, y, z}).%3 points
+-record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
+-record(sline, {line, s}).
+-record(point, {x, y, z}).%3 integers.
+-record(line, {x, y, z}).%3 integers.
+-record(triangle, {x, y, z}).%3 (s)points
+-record(trilateral, {x, y, z}).%3 spoints
+-record(srat, {rat, s}).%rat is a rational. s is for whether we are talking about the big or small angle. true indicates the short distance.
 
-polar(T = #triangle{}) ->
-    T2 = proj:triangle_to_trilateral(T),
-    proj:dual(T2).
-quadrance(P1, P2) ->
-    V1 = trig:point_to_3vector(P1),
-    V2 = trig:point_to_3vector(P2),
-    trig:spread(V1, V2).
+%s is for whether this indicates an quadrance that crosses the equator, or a lune that contains a north or south pole.
+-record(rat, {top, bottom}).
+
+quadrance(P1 = #point{}, P2 = #point{}) ->
+    trig:spread(P1, P2);
+quadrance(SP1 = #spoint{point = P1, s = S1}, 
+          SP2 = #spoint{point = P2, s = S2}) ->
+    SBig = same_side_is_small(SP1, SP2),
+    Rat = quadrance(P1, P2),
+    #srat{rat = Rat, s = SBig}.
+same_side_is_small(
+  P1 = #spoint{}, P2 = #spoint{}) ->
+    dot2(P1, P2) > 0.
+dot2(#sline{line = P1, s = S1}, #sline{line = P2, s = S2}) ->
+    D = dot(P1, P2),
+    if
+        (S1 xor S2) -> -D;
+        true -> D
+    end;
+dot2(P1 = #spoint{}, P2 = #spoint{}) ->
+    dot2(dual(P1), dual(P2)).
+dot(P1 = #point{x = X1, y = Y1, z = Z1}, 
+    P2 = #point{x = X2, y = Y2, z = Z2}) ->
+    (X1 * X2) + (Y1 * Y2) + (Z1 * Z2);
+dot(P1 = #line{}, P2 = #line{}) ->
+    dot(proj:dual(P1), proj:dual(P2)).
 quadrances(T = #triangle{x = X, y = Y, z = Z}) ->
     [quadrance(Y, Z),
      quadrance(Z, X),
      quadrance(Y, X)].
-spreads(T) -> quadrances(polar(T)).
-    
-small_triangle_trio(
-  [{A1, A2}, {B1, B2}, {C1, C2}]) ->
-  %X) ->
-    %looking at the pairs of possible angles, it finds the smallest triangle.
-    Combinations = 
-        [[A1, B1, C1],
-         [A1, B1, C2],
-         [A1, B2, C1],
-         [A1, B2, C2],
-         [A2, B1, C1],
-         [A2, B1, C2],
-         [A2, B2, C1],
-         [A2, B2, C2]],
-    %io:fwrite({Combinations, Combinations2}),
-    Combinations2 = 
-        lists:filter(fun([A, B, C]) ->
-                             (A+B+C) > math:pi()
-                     end, Combinations),
-    hd(lists:sort(fun([A, B, C], [A2, B2, C2]) ->
-                          (A+B+C) < (A2+B2+C2)
-                  end, Combinations2)).
-planar_area([{A1, _}, {A2, _}, {A3, _}]) ->
+dual(#trilateral{x = L1, y = L2, z = L3}) ->
+    #triangle{x = dual(L1), 
+              y = dual(L2), 
+              z = dual(L3)};
+dual(#sline{line = L, s = S}) ->
+    #spoint{point = proj:dual(L), s = S};
+dual(#spoint{point = P, s = S}) ->
+    #sline{line = proj:dual(P), s = S}.
+
+join(#spoint{point = P1, s = S1},
+     #spoint{point = P2, s = S2}) ->
+    %for S, take the cross product of the vector starting at the center of the globe, and passing through that point.
+%    North = #point{x = 0,y = 0,z = 1},
+%    Orthogonal = cross(P1, P2),
+%    CircleContainsNorth = 
+%        Orthogonal#point.z > 0,
+        %dot(North, Orthogonal) > 0,
+    CircleContainsNorth = 
+        (P1#point.x * P2#point.y) > 
+        (P2#point.x * P1#point.y),
+    #sline{line = proj:join(P1, P2),
+           s = CircleContainsNorth xor S1 xor S2}.
+triangle_to_trilateral(
+  #triangle{x = X, y = Y, z = Z}) ->
+    #trilateral{x = join(Y, Z),
+                y = join(Z, X),
+                z = join(X, Y)}.
+spreads(T = #triangle{}) ->
+    quadrances(
+      dual(triangle_to_trilateral(T))).
+planar_area([A1, A2, A3]) ->
     S = (A1 + A2 + A3) / 2,
-    math:sqrt(
+    Area2 = 
       S 
       * (S - A1) 
       * (S - A2)
-      * (S - A3)).
+      * (S - A3),
+    math:sqrt(max(0, Area2)).
 area(T = #triangle{}) ->
-    %excess internal angle strategy.
     [A1C, A2C, A3C] = angles(T),
     Area1 = A1C + A2C + A3C - (math:pi()),
-    %planar estimation strategy.
-    F = fun(X) -> trig:spread_to_angle(X) end,
-    Q2 = lists:map(F, quadrances(T)),
+    Q2 = spreads_to_angles(quadrances(T)),
     Area2 = planar_area(Q2),
     if
         (Area1 < 0.00001) -> Area2;
         true -> Area1
     end.
-angles(T = #triangle{}) ->
-    small_triangle_trio(
-      lists:map(
-        fun(X) -> trig:spread_to_angle(X) end,
-        spreads(T))).
-direction(P1, P2) ->
-    North = proj:make_point(0,0,1),
-    Collinear = proj:collinear(P1, P2, North),
+spreads_to_angles([]) -> [];
+spreads_to_angles([H|T]) -> 
+    [spread_to_angle(H)|
+     spreads_to_angles(T)].
+spread_to_angle(#srat{rat = R, s = Big}) ->
+    {A1, A2} = trig:spread_to_angle(R),
     if
-        Collinear ->
-            Q1 = trig:quadrance_to_distance(quadrance(P1, North)),
-            Q2 = trig:quadrance_to_distance(quadrance(P2, North)),
-            if
-                Q2 > Q1 -> 180;
-                true -> 0
-            end;
-        true ->
-            T = proj:make_trilateral(
-                  proj:dual(P1), 
-                  proj:join(P1, North), 
-                  proj:join(P1, P2)),
-            T2 = proj:trilateral_to_triangle(T),
-            %#triangle{x = X, y = Y, z = Z} = T2,
-            Clockwise = trig:clockwise(P1, North, P2),
-            _Obtuse = rat:less_than(
-                       quadrance(P1, North),
-                       quadrance(P2, North)),
-            Obtuse = false,
-            %this is not correctly measuring if the angle is obtuse. TODO
-    %if it is not clockwise, we are turning westeward. 
-    %if it is clockwise, we are turning eastward.
-            %A = element(1, angles(T2)),
-            A0 = hd(angles(T2)),%error! not always this angle.
-            A = [A0, math:pi() - A0],%second possibility is for if we are in different hemispheres.
-            F = fun(Angle) ->
-                        B = case Clockwise of
-                                false -> ((math:pi() * 2) - Angle);
-                                true -> Angle
-                            end,
-                        B * 180 / math:pi()
-                end,
-            lists:map(F, A)
+        Big -> A1;
+        true -> A2
     end.
-    
+angles(T = #triangle{}) ->
+    spreads_to_angles(spreads(T)).
+direction(P1 = #spoint{point = U1, s = S1}, 
+          P2 = #spoint{point = U2, s = S2}) ->
+    NP = proj:make_point(0,0,1),
+    North = #spoint{point = NP, s = true},
+    T = #triangle{x = P1, y = North, z = P2},
+    Angle = spread_to_angle(hd(spreads(T))),
+    A2 = Angle*180/math:pi(),
+    Clockwise = trig:clockwise(U1, NP, U2),
+    if
+        (Clockwise xor S1 xor S2) -> A2;
+        true -> 360-A2
+    end.
 
 test() ->
-    P1 = proj:make_point(1, -1, 2),
-    P2 = proj:make_point(3, 1, 1),
-    P3 = proj:make_point(1, 2, -2),
-    T = proj:make_triangle(P1, P2, P3),
-    B = polar(T),
-    {spreads(T), B}.
-
-test2() -> 
-    Ns = [1, 1000, 1000000, 1000000000, 1000000000000],
-    B = 100000000,
-    F = fun(N) ->
-                P1 = proj:make_point(B, B+N, B),
-                P2 = proj:make_point(B+N, B, B),
-                P3 = proj:make_point(B, B, B),
-                area(proj:make_triangle(P1, P2, P3))
-        end,
-    lists:map(F, Ns).
-
-test3() ->
-    P1 = proj:make_point(1000, 1000, 1000), 
-    P2a = proj:make_point(-1000, 999, 1000),
-    P2o = proj:make_point(-1000, 1001, 1000),
-    P3 = proj:make_point(4509,5307,5000),
-    P4 = proj:make_point(-6517,3501,5000),
-    P5 = proj:make_point(0, -1000, 1000), 
-    P6a = proj:make_point(0, -800, 1000),
-    P6b = proj:make_point(1, -800, 1000),
-    P7 = proj:make_point(0,-1000, 1000),
-    P8 = proj:make_point(-1, -1005, 1000),
+    B = 1000,
+    P1 = #spoint{point = #point{x = 0, y = -B, z = B}, s = true},
+    P2 = #spoint{point = #point{x = 0-1, y = -B - 5, z = B}, s = true},
+    P3 = #spoint{point = #point{x = 0+1, y = -B-5, z = B}, s = true},
+    Tokyo = #spoint{point = #point{x = 4509, y = 5307, z = 5000}, s = true},
+    Mel = #spoint{point = #point{x = -3699, y = -5275, z = 5000}, s = false},
+    Sydney = #spoint{point = #point{x = -3607, y = -6508, z = 5000}, s = false},
+    T = #triangle{x = P1, y = P2, z = P3},
+    NP = proj:make_point(0,0,1),
+    North = #spoint{point = NP, s = true},
+    ToDegree = fun(R) -> R*180/math:pi() end,
+    MapDegree = fun(L) -> 
+                        lists:map(
+                          fun(X) ->
+                                  X*180/math:pi()
+                          end, L)
+                end,
     {
-      direction(P1, P2a),
-     direction(P2a, P1),
-      direction(P1, P2o),
-     direction(P2o, P1),
-     % direction(P3, P4),
-     % direction(P4, P3),
-      direction(P5, P6a),
-      direction(P6a, P5),
-      direction(P5, P6b),
-      direction(P6b, P5),
-      direction(P7, P8),
-      direction(P8, P7)
+     %quadrances(T),
+      spreads(#triangle{x = Mel, y =North, z = Tokyo}),
+      spreads(#triangle{x = Tokyo, y =North, z = Mel}),
+      spreads(#triangle{x = P2, y =North, z = P1}),
+      %spreads2(#triangle{x = P1, y =North, z = P2}),
+      %spreads(#triangle{x = P2, y =North, z = P1}),
+      %MapDegree(angles(#triangle{x = Mel, y =North, z = Sydney})),%should be 53, 6, 130
+      MapDegree(angles(#triangle{x = P1, y =North, z = P2})),%should be 165,0,15  change:1,0,0
+      %{111, 111
+      MapDegree(angles(#triangle{x = Tokyo, y =North, z = Mel})),%should be 
+      %110 111
+      MapDegree(angles(#triangle{x = Mel, y =North, z = Tokyo})),%should be 4.5, 5, 175
+      %011, 101
+      MapDegree(angles(#triangle{x = P2, y =North, z = P1})),%should be 15,0,165  change:0,0,1
+      %111 101
+     direction(P2, P1),%should be 15
+     direction(P1, P3),%
+     direction(P1, P2),%should be 195
+     direction(Tokyo, Mel),%
+     direction(Sydney, Mel),%
+     direction(Mel, Tokyo),%
+     area(T)
     }.
-test4() ->
-%{globe:gps_to_point({50,0}), globe:gps_to_point({50,10})}.
-%{{point,0,-8391,10000},{point,1457,-8264,10000}}
-    %spherical_trig:direction({point,0,-8391,10000},{point,1457,-8264,10000}).%93.8? should be like 87.2
-    %spherical_trig:direction({point,0,-9,10},{point,1,-8,10}).%93.8? should be like 87.2
-    spherical_trig:direction(
-      {point,-5446,3459,5000},
-      {point,-6517,3501,5000}).%is 43. should be like 140.
     
+test2() ->
+    B = 1000,
+    P1 = #spoint{point = #point{x = B, y = -B, z = B}, s = true},
+    P2 = #spoint{point = #point{x = B, y = -B-1, z = B}, s = true},
+    P3 = #spoint{point = #point{x = B+1, y = -B-1, z = B}, s = true},
+    {join(P1, P2),
+     join(P1, P3),
+     join(P2, P1),
+     join(P3,P1)
+    }.
+    
+    
+    
+               
     
     

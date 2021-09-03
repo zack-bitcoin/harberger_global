@@ -1,10 +1,8 @@
 -module(trig).
 %planar trigonometry over the rationals.
--export([test/0, spread/2, spread_to_angle/1,
-         clockwise/3, quadrance_to_distance/1,
-         negative/1, sub/2, quadrance/1, 
-         point_to_3vector/1,
-         cross/2, dot/2]).
+-export([spread_to_angle/1,
+         spread/2,
+         clockwise/3, test/0]).
 -record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers
 -record(vector, {x, y}).%2 rationals
@@ -124,6 +122,9 @@ determinate(
 quadrance_to_distance(R) -> 
     math:sqrt(rat:to_float(R)).
 quadrance(V) -> dot(V, V).
+spread(V1 = #point{}, V2 = #point{}) ->
+    spread(point_to_3vector(V1),
+           point_to_3vector(V2));
 spread(V1, V2) ->
 %    D = determinate(V1, V2),
 %    rat:make(D*D,
