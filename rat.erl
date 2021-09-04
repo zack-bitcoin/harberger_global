@@ -2,6 +2,7 @@
 %rational numbers library.
 -export([make/2, add/2, sub/2, mul/2, 
          divide/2, add/3, mul/3, 
+         inverse/1, less_than/2,
          negative/1, zero/1, to_float/1,
          positive/1]).
 
@@ -32,8 +33,10 @@ sub(#rat{t = T1, b = B1},
                      b = B1*B2}).
 add(A, B) -> sub(A, negative(B)).
 add(A, B, C) -> add(A, add(B, C)).
-divide(A, #rat{t = T, b = B}) ->
-    mul(A, #rat{t = B, b = T}).
+divide(A, B) ->
+    mul(A, inverse(B)).
+inverse(#rat{t = T, b = B}) ->
+    #rat{t = B, b = T}.
 negative(N = #rat{t = T}) ->
     N#rat{t = -T}.
 less_than(#rat{t = T1, b = B1},

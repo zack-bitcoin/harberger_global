@@ -1,6 +1,12 @@
 -module(spherical_trig).
 -export([area/1, quadrance/2,direction/2, 
-         test/0, test2/0]).
+         same_hemisphere/2, dual/1,
+         trilateral_to_triangle/1,
+         triangle_to_trilateral/1,
+         make_trilateral/3,
+         make_triangle/3,
+         join/2, meet/2,
+         test/0, test2/0, test3/0, test4/0]).
 
 -record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
 -record(sline, {line, s}).
@@ -13,14 +19,19 @@
 %s is for whether this indicates an quadrance that crosses the equator, or a lune that contains a north or south pole.
 -record(rat, {top, bottom}).
 
+make_trilateral(X, Y, Z) ->
+    #trilateral{x = X, y = Y, z = Z}.
+make_triangle(X, Y, Z) ->
+    #triangle{x = X, y = Y, z = Z}.
+
 quadrance(P1 = #point{}, P2 = #point{}) ->
     trig:spread(P1, P2);
 quadrance(SP1 = #spoint{point = P1, s = S1}, 
           SP2 = #spoint{point = P2, s = S2}) ->
-    SBig = same_side_is_small(SP1, SP2),
+    SBig = same_hemisphere(SP1, SP2),
     Rat = quadrance(P1, P2),
     #srat{rat = Rat, s = SBig}.
-same_side_is_small(
+same_hemisphere(
   P1 = #spoint{}, P2 = #spoint{}) ->
     dot2(P1, P2) > 0.
 dot2(#sline{line = P1, s = S1}, #sline{line = P2, s = S2}) ->
@@ -49,6 +60,10 @@ dual(#sline{line = L, s = S}) ->
 dual(#spoint{point = P, s = S}) ->
     #sline{line = proj:dual(P), s = S}.
 
+meet(L1 = #sline{}, L2 = #sline{}) ->
+    Rat = dual(join(dual(L1), dual(L2))),
+    %Rat#srat{s = not(Rat#srat.s)}.
+    Rat.
 join(#spoint{point = P1, s = S1},
      #spoint{point = P2, s = S2}) ->
     %for S, take the cross product of the vector starting at the center of the globe, and passing through that point.
@@ -62,14 +77,39 @@ join(#spoint{point = P1, s = S1},
         (P2#point.x * P1#point.y),
     #sline{line = proj:join(P1, P2),
            s = CircleContainsNorth xor S1 xor S2}.
-triangle_to_trilateral(
-  #triangle{x = X, y = Y, z = Z}) ->
-    #trilateral{x = join(Y, Z),
-                y = join(Z, X),
-                z = join(X, Y)}.
+           %s = S1 xor S2}.
+           %s = S1 xor S2}.
+flip_hemisphere(Tl = #trilateral{
+                  x = X, y = Y, z = Z}) ->
+    #trilateral{x = X#sline{s = not(X#sline.s)},
+                y = Y#sline{s = not(Y#sline.s)},
+                z = Z#sline{s = not(Z#sline.s)}}.
+triangle_to_trilateral(Tri = #triangle{
+                         x = X, y = Y, z = Z}) ->
+    Clockwise = 
+        X#spoint.s xor 
+        Y#spoint.s xor 
+        Z#spoint.s xor
+        trig:clockwise(
+          X#spoint.point, 
+          Y#spoint.point, 
+          Z#spoint.point),
+    T2 = #trilateral{x = join(Y, Z),
+                     y = join(Z, X),
+                     z = join(X, Y)},
+    if
+        Clockwise -> T2;
+        true -> 
+            flip_hemisphere(T2)
+    end.
+trilateral_to_triangle(T) ->
+    dual(triangle_to_trilateral(dual(T))).
 spreads(T = #triangle{}) ->
-    quadrances(
-      dual(triangle_to_trilateral(T))).
+    Qs = quadrances(
+           dual(triangle_to_trilateral(T))),
+    lists:map(fun(R) ->
+                      R#srat{s = not(R#srat.s)}
+              end, Qs).
 planar_area([A1, A2, A3]) ->
     S = (A1 + A2 + A3) / 2,
     Area2 = 
@@ -83,6 +123,7 @@ area(T = #triangle{}) ->
     Area1 = A1C + A2C + A3C - (math:pi()),
     Q2 = spreads_to_angles(quadrances(T)),
     Area2 = planar_area(Q2),
+    %io:fwrite({A1C, A2C, A3C, Q2, Area1, Area2}),
     if
         (Area1 < 0.00001) -> Area2;
         true -> Area1
@@ -107,10 +148,12 @@ direction(P1 = #spoint{point = U1, s = S1},
     Angle = spread_to_angle(hd(spreads(T))),
     A2 = Angle*180/math:pi(),
     Clockwise = trig:clockwise(U1, NP, U2),
-    if
-        (Clockwise xor S1 xor S2) -> A2;
-        true -> 360-A2
-    end.
+    A3 = if
+             (Clockwise xor S1 xor S2) -> A2;
+             true -> 360-A2
+         end,
+    180-A3.
+    
 
 test() ->
     B = 1000,
@@ -157,17 +200,58 @@ test() ->
     
 test2() ->
     B = 1000,
-    P1 = #spoint{point = #point{x = B, y = -B, z = B}, s = true},
+    P1 = #spoint{point = #point{x = B, y = -B+1, z = B}, s = true},
     P2 = #spoint{point = #point{x = B, y = -B-1, z = B}, s = true},
     P3 = #spoint{point = #point{x = B+1, y = -B-1, z = B}, s = true},
-    {join(P1, P2),
-     join(P1, P3),
+    Trib = make_triangle(P1, P3, P2),
+    Trib2 = trilateral_to_triangle(
+             triangle_to_trilateral(Trib)),
+    Tri = make_triangle(P1, P2, P3),
+    Tri2 = trilateral_to_triangle(
+             triangle_to_trilateral(Tri)),
+    Tri = Tri2,
+%    io:fwrite({triangle_to_trilateral(Tri), 
+%               triangle_to_trilateral(Trib)}),
+    Trib = Trib2,
+   
+
+    { 
+      join(P1, P2),
      join(P2, P1),
+     join(P1, P3),
      join(P3,P1)
     }.
     
+test3() ->    
+    Trilat = {trilateral,
+              {sline,
+               {line,8953,-156,3},
+               false},
+              {sline,
+               {line,0,312,8947},
+               true},
+              {sline,
+               {line,-8953,-156,3},
+               false}},
+    Trilat = triangle_to_trilateral(
+               trilateral_to_triangle(
+                 Trilat)).
+test4() ->
+    B = 10,
+    P1 = #spoint{point = #point{x = B, y = -B+1, z = B}, s = true},
+    P2 = #spoint{point = #point{x = B, y = -B-1, z = B}, s = true},
+    P3 = #spoint{point = #point{x = B-1, y = -B-1, z = B}, s = true},
+    Tri = make_triangle(P1, P2, P3),
+    Tril = triangle_to_trilateral(Tri),
+    Tri = trilateral_to_triangle(Tril),
+    %io:fwrite({Tri, Tri2}),
     
+    {Tri,
+     Tril,
+     dual(Tril),
+     spreads(Tri),
+     angles(Tri),
+     area(Tri)}.
     
-               
     
     
