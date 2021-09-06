@@ -1,7 +1,9 @@
 -module(trig).
 %planar trigonometry over the rationals.
 -export([spread_to_angle/1,
-         spread/2,
+         spread/2, negative/1,
+         point_to_vector/1,
+         sub/2, determinate/2,
          clockwise/3, test/0]).
 -record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers

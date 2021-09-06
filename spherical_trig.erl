@@ -1,11 +1,13 @@
 -module(spherical_trig).
 -export([area/1, quadrance/2,direction/2, 
+         quadrances/1, angles/1,
          same_hemisphere/2, dual/1,
          trilateral_to_triangle/1,
          triangle_to_trilateral/1,
          make_trilateral/3,
          make_triangle/3,
          join/2, meet/2,
+         clockwise/1,
          test/0, test2/0, test3/0, test4/0]).
 
 -record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
@@ -72,28 +74,29 @@ join(#spoint{point = P1, s = S1},
 %    CircleContainsNorth = 
 %        Orthogonal#point.z > 0,
         %dot(North, Orthogonal) > 0,
-    CircleContainsNorth = 
-        (P1#point.x * P2#point.y) > 
-        (P2#point.x * P1#point.y),
+    A = (P1#point.x * P2#point.y),
+    B = (P2#point.x * P1#point.y),
+    CircleContainsNorth = A > B,
     #sline{line = proj:join(P1, P2),
            s = CircleContainsNorth xor S1 xor S2}.
-           %s = S1 xor S2}.
-           %s = S1 xor S2}.
 flip_hemisphere(Tl = #trilateral{
                   x = X, y = Y, z = Z}) ->
     #trilateral{x = X#sline{s = not(X#sline.s)},
                 y = Y#sline{s = not(Y#sline.s)},
                 z = Z#sline{s = not(Z#sline.s)}}.
-triangle_to_trilateral(Tri = #triangle{
-                         x = X, y = Y, z = Z}) ->
-    Clockwise = 
-        X#spoint.s xor 
+clockwise(Tri = #triangle{x = X, y = Y, z = Z}) ->
+    true xor
+    X#spoint.s xor 
         Y#spoint.s xor 
         Z#spoint.s xor
         trig:clockwise(
           X#spoint.point, 
           Y#spoint.point, 
-          Z#spoint.point),
+          Z#spoint.point).
+    
+triangle_to_trilateral(Tri = #triangle{
+                         x = X, y = Y, z = Z}) ->
+    Clockwise = clockwise(Tri),
     T2 = #trilateral{x = join(Y, Z),
                      y = join(Z, X),
                      z = join(X, Y)},
@@ -140,16 +143,19 @@ spread_to_angle(#srat{rat = R, s = Big}) ->
     end.
 angles(T = #triangle{}) ->
     spreads_to_angles(spreads(T)).
-direction(P1 = #spoint{point = U1, s = S1}, 
-          P2 = #spoint{point = U2, s = S2}) ->
+direction(%P1 = #spoint{point = U1, s = S1}, 
+          %P2 = #spoint{point = U2, s = S2}) ->
+  P1 = #spoint{}, P2 = #spoint{}) ->
     NP = proj:make_point(0,0,1),
     North = #spoint{point = NP, s = true},
     T = #triangle{x = P1, y = North, z = P2},
     Angle = spread_to_angle(hd(spreads(T))),
     A2 = Angle*180/math:pi(),
-    Clockwise = trig:clockwise(U1, NP, U2),
+    %Clockwise = trig:clockwise(U1, NP, U2),
+    Clockwise2 = clockwise(T),
     A3 = if
-             (Clockwise xor S1 xor S2) -> A2;
+             %(Clockwise xor S1 xor S2) -> A2;
+             Clockwise2 -> A2;
              true -> 360-A2
          end,
     180-A3.
