@@ -23,14 +23,6 @@ With data merkle trees are easy. Each data can be stored by the hash of that dat
 
 The way to make land unique is that each node in the Merkle tree should specify a great circle that divides the earth in 2 halves. The left branch of the tree can hold information about the left hemisphere of the planet, and the right branch holds information about the right hemisphere. This way we can be certain that each side of the tree holds non-overlapping regions of land.
 
-[here is a math library for converting gps coordinates into rational spherical coordinates, converting rational spherical coordinates back to gps coordinates, and connecting rational coordinates into rational great circles](/rationals.erl)
+[here is a math library for converting gps coordinates into rational spherical coordinates, converting rational spherical coordinates back to gps coordinates, and connecting rational coordinates into rational great circles](/globe.erl)
 
-What we still need
-===================
-
-We need a second merkle tree to keep track of bids. Where people make offers to buy regions of land.
-
-We need a way for someone to post a combination of bids, and show that the resulting change of ownerships will result in the land having higher value, and this makes the ownerships all change.
-
-We need a way for someone to show that reorganizing the merkle tree of land ownership can make it more balanced, so merkle proofs can be shorter on average.
-
+[here is a math library for accepting a list of great circle constraints, and computing the points on the corners of the enclosed region](/spherical_trig.erl)
