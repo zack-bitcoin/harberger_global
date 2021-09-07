@@ -62,9 +62,7 @@ dual(#spoint{point = P, s = S}) ->
     #sline{line = proj:dual(P), s = S}.
 
 meet(L1 = #sline{}, L2 = #sline{}) ->
-    Rat = dual(join(dual(L1), dual(L2))),
-    %Rat#srat{s = not(Rat#srat.s)}.
-    Rat.
+    dual(join(dual(L1), dual(L2))).
 join(#spoint{point = P1, s = S1},
      #spoint{point = P2, s = S2}) ->
     %for S, take the cross product of the vector starting at the center of the globe, and passing through that point.
@@ -114,26 +112,20 @@ spreads(T = #triangle{}) ->
               end, Qs).
 planar_area([A1, A2, A3]) ->
     S = (A1 + A2 + A3) / 2,
-    Area2 = 
-      S 
-      * (S - A1) 
-      * (S - A2)
-      * (S - A3),
+    Area2 = S * (S - A1) * 
+        (S - A2) * (S - A3),
     math:sqrt(max(0, Area2)).
 area(T = #triangle{}) ->
     [A1C, A2C, A3C] = angles(T),
     Area1 = A1C + A2C + A3C - (math:pi()),
     Q2 = spreads_to_angles(quadrances(T)),
     Area2 = planar_area(Q2),
-    %io:fwrite({A1C, A2C, A3C, Q2, Area1, Area2}),
     if
         (Area1 < 0.00001) -> Area2;
         true -> Area1
     end.
-spreads_to_angles([]) -> [];
-spreads_to_angles([H|T]) -> 
-    [spread_to_angle(H)|
-     spreads_to_angles(T)].
+spreads_to_angles(S) ->
+    lists:map(fun spread_to_angle/1, S).
 spread_to_angle(#srat{rat = R, s = Big}) ->
     {A1, A2} = trig:spread_to_angle(R),
     if
@@ -142,18 +134,14 @@ spread_to_angle(#srat{rat = R, s = Big}) ->
     end.
 angles(T = #triangle{}) ->
     spreads_to_angles(spreads(T)).
-direction(%P1 = #spoint{point = U1, s = S1}, 
-          %P2 = #spoint{point = U2, s = S2}) ->
-  P1 = #spoint{}, P2 = #spoint{}) ->
+direction(P1 = #spoint{}, P2 = #spoint{}) ->
     NP = proj:make_point(0,0,1),
     North = #spoint{point = NP, s = true},
     T = #triangle{x = P1, y = North, z = P2},
     Angle = spread_to_angle(hd(spreads(T))),
     A2 = Angle*180/math:pi(),
-    %Clockwise = trig:clockwise(U1, NP, U2),
     Clockwise2 = clockwise(T),
     A3 = if
-             %(Clockwise xor S1 xor S2) -> A2;
              Clockwise2 -> A2;
              true -> 360-A2
          end,
@@ -179,9 +167,8 @@ remove_excess_lines([A, B, C|L]) ->
 remove_excess_lines2(Lines, []) -> Lines;
 remove_excess_lines2(Lines, T) ->
     Points = pointify(slope_sort(Lines)),
-    {E, C} = contains(
-               dual(hd(T)), 
-               Points, [], []),
+    {E, C} = contains(dual(hd(T)), 
+                      Points, [], []),
     case C of
         [] -> {error, empty_region};
         _ -> remove_excess_lines3(Lines, E, T)
@@ -221,6 +208,7 @@ slope(#sline{line = #line{x = X, y = Y},
                 rat:inverse(rat:sub(One, Slope1))
         end,
     if
+        %lower hemisphere is negatives.
         S -> Slope2;
         true -> rat:inverse(rat:negative(Slope2))
     end.
@@ -231,8 +219,7 @@ linify([H|T]) ->
     linify2([H|T]) ++ [X].
 linify2([_]) -> [];
 linify2([A|[B|T]]) -> [join(A, B)|linify2([B|T])].
-pointify(L) ->
-    pointify2(L ++ [hd(L), hd(tl(L))]).
+pointify(L) -> pointify2(L ++ [hd(L), hd(tl(L))]).
 pointify2([_, _]) -> [];
 pointify2([A, B, C|T]) ->
     T1 = make_trilateral(A, B, C),
@@ -265,9 +252,6 @@ region(L) ->
                 true -> region(L5)
             end
     end.
-
-
-
     
 
 test() ->
