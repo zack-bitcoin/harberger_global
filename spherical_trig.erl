@@ -1,14 +1,13 @@
 -module(spherical_trig).
--export([area/1, quadrance/2,direction/2, 
-         quadrances/1, angles/1,
-         same_hemisphere/2, dual/1,
-         trilateral_to_triangle/1,
-         triangle_to_trilateral/1,
+-export([
+         join/2, meet/2, dual/1,
+         area/1, quadrance/2,direction/2, 
+         same_hemisphere/2, 
          make_trilateral/3,
-         make_triangle/3,
-         join/2, meet/2,
-         clockwise/1,
-         test/0, test2/0, test3/0, test4/0]).
+         trilateral_to_triangle/1,
+         region/1,
+         test/0, test2/0, test3/0, test4/0,
+         test5/0, test6/0, test7/0]).
 
 -record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
 -record(sline, {line, s}).
@@ -159,6 +158,116 @@ direction(%P1 = #spoint{point = U1, s = S1},
              true -> 360-A2
          end,
     180-A3.
+slope_sort(L) ->
+    lists:sort(
+      fun(A, B) ->
+              rat:less_than(
+                slope(B), slope(A))
+      end, L).
+contains(_, [], E, C) -> 
+    {lists:reverse(E), lists:reverse(C)};
+contains(New = #spoint{}, 
+         [Sp = #spoint{}|Points],
+         E, C) ->
+    B = same_hemisphere(New, Sp),
+    {E2, C2} = if B -> {[Sp|E], C};
+                  true -> {E, [Sp|C]} end,
+    contains(New, Points, E2, C2).
+remove_excess_lines([A, B, C|L]) ->
+    remove_excess_lines2([A, B, C], L).
+    %start with a trilateral, keep trying to add more lines constraining the space.
+remove_excess_lines2(Lines, []) -> Lines;
+remove_excess_lines2(Lines, T) ->
+    Points = pointify(slope_sort(Lines)),
+    {E, C} = contains(
+               dual(hd(T)), 
+               Points, [], []),
+    case C of
+        [] -> {error, empty_region};
+        _ -> remove_excess_lines3(Lines, E, T)
+    end.
+remove_excess_lines3(Lines, E, [New|T]) ->
+    Lines2 = remove_if_touch_2(Lines, E),
+    Lines3 = if %If a new line contains all existing points, then we should drop that line.
+                 (E == []) -> Lines2;
+                 true -> [New|Lines2]
+             end,
+    remove_excess_lines2(Lines3, T).
+remove_if_touch_2(Lines, Ps) 
+  when (length(Ps) < 2) -> Lines;
+remove_if_touch_2(Lines, Ps) ->
+    lists:filter(
+      fun(#sline{line = L}) -> 
+              length(
+                lists:filter(
+                  fun(#spoint{point = P}) -> 
+                          proj:incident(L, P) 
+                  end, Ps)) < 2
+      end, 
+      Lines).
+slope(#sline{line = #line{x = X, y = Y}, 
+             s = S}) ->
+    One = rat:make(1, 1),
+    Slope1 = rat:make(-X, Y),
+    B = rat:positive(Slope1),
+    Slope2 = 
+        %monatonic from rationals -> positive rationals
+        if
+            B -> 
+                %from positives to rationals > 1.
+                rat:add(One, Slope1);
+            true ->
+                %from negatives to rationals < 1 and > 0.
+                rat:inverse(rat:sub(One, Slope1))
+        end,
+    if
+        S -> Slope2;
+        true -> rat:inverse(rat:negative(Slope2))
+    end.
+linify([H|T]) ->
+    %starts with point preceding first line.
+    %used for tests.
+    X = join(lists:last(T), H),
+    linify2([H|T]) ++ [X].
+linify2([_]) -> [];
+linify2([A|[B|T]]) -> [join(A, B)|linify2([B|T])].
+pointify(L) ->
+    pointify2(L ++ [hd(L), hd(tl(L))]).
+pointify2([_, _]) -> [];
+pointify2([A, B, C|T]) ->
+    T1 = make_trilateral(A, B, C),
+    T2 = trilateral_to_triangle(T1),
+    #triangle{x = Z} = T2,
+    [Z|pointify2([B, C|T])].
+concurrent(#sline{line = X}, #sline{line = Y},
+           #sline{line = Z}) ->
+    proj:concurrent(X, Y, Z).
+remove_concurrents([A, B, C|T]) -> 
+    Bool = concurrent(A, B, C),
+    case {Bool, T} of
+        {true, []} -> [];
+        {_, []} -> [A, B, C];
+        {true, _} -> remove_concurrents([A, C|T]);
+        _ -> [A|remove_concurrents([B, C|T])]
+    end.
+%region operations
+region(L) ->
+    %given a list of lines, return the points at the corner of the enclosed region.
+%todo: if a region has no space in it, we need to realize this and say so.
+    if
+        length(L) < 3 -> empty_region;
+        true ->
+            L2 = slope_sort(L),
+            L4 = slope_sort(remove_excess_lines(L2)),
+            L5 = slope_sort(remove_concurrents(L4)),
+            if
+                (L5 == L4) -> pointify(L4);
+                true -> region(L5)
+            end
+    end.
+
+
+
     
 
 test() ->
@@ -259,5 +368,152 @@ test4() ->
      angles(Tri),
      area(Tri)}.
     
+test5() ->
+    P1 = globe:gps_to_point({42, 10}),
+    P2 = globe:gps_to_point({43, 8}),
+    P3 = globe:gps_to_point({45, 7}),
+    P4 = globe:gps_to_point({47, 8}),
+    P5 = globe:gps_to_point({48, 10}),
+    P6 = globe:gps_to_point({47, 12}),
+    P7 = globe:gps_to_point({45, 13}),
+    P8 = globe:gps_to_point({43, 12}),
+    Ps = [P1, P2, P3, P4,
+          P5, P6, P7, P8],
+    [L1, L2, L3, L4,
+     L5, L6, L7, L8] = linify(Ps),
+
+    UL1 = dual(P1),
+    UL2 = dual(P2),
+    UL3 = dual(P3),
+    UL4 = dual(P4),
+    
+    UL1b = UL1#sline{s = not(UL1#sline.s)},
+    UL0b = dual(
+             globe:gps_to_point({1, -190})),
+    UL0c = dual(
+             %globe:gps_to_point({-85, 45})),
+             globe:gps_to_point({-1, -190})),
+   
+    NP = globe:gps_to_point({89, -80}),%left of north pole
+    NB1 = join(P3, NP),%should include all.
+    NB1b = join(NP, P3),%should exclude all.
+    false = (NB1 == NB1b),
+    NB2 = join(NP, P7),
+    %L = [UL1, UL2, UL3, UL4, L1, L2, L3, L4, L5, L6, L7, L8],
+    L = [L1, L2, L3, L4, L5, L6, L7, L8, %borders
+         NB2, NB1, %tangent at a point
+         %NB1b,
+         UL0b, UL0c, UL1b],%external points that touch nowhere
+    %L = [L1, L2, L3, L4, L5, L6, L7, L8],
+    {
+      {bad_lines, {NB1}},
+      {slope_sorted, slope_sort(L)},
+      %{pointify, globe:gpsify(pointify(slope_sort(L)))},
+      %{slope_sorted, slope_sort(remove_concurrents2(slope_sort(L)))},
+      {slope_sorted, slope_sort(remove_concurrents(slope_sort(L)))},
+      {region, globe:gpsify(region(L))}
+      %lists:map(fun(X) -> point_to_gps(X) end,
+      %           region(L))}
+      %linify(region(L))
+    }.
+   
+test6() -> 
+    P1 = globe:gps_to_point({-48, 10}),
+    P2 = globe:gps_to_point({-47, 8}),
+    P3 = globe:gps_to_point({-45, 7}),
+    P4 = globe:gps_to_point({-43, 8}),
+    P5 = globe:gps_to_point({-42, 10}),
+    P6 = globe:gps_to_point({-43, 12}),
+    P7 = globe:gps_to_point({-45, 13}),
+    P8 = globe:gps_to_point({-47, 12}),
+    Ps = [P1, P2, P3, P4,
+          P5, P6, P7, P8],
+    %draw a circle like test 4, but this time in the southern hemisphere.
+    [L1, L2, L3, L4,
+     L5, L6, L7, L8] = linify(Ps),
+    UL1 = dual(P1),
+    UL2 = dual(P2),
+    UL3 = dual(P3),
+    UL4 = dual(P4),
+    UL1b = UL1#sline{s = not(UL1#sline.s)},
+    L = linify(Ps) ++ [UL1b],
+    {
+      {slope_sorted, slope_sort(L)},
+      %{pointified1, globe:gpsify(Ps)},
+      %{pointified, globe:gpsify(pointify(lists:reverse(slope_sort(L))))},
+      {pointified, globe:gpsify(pointify(slope_sort(L)))},
+      {region, globe:gpsify(region(L))}
+    }.
+test7() ->
+{{bad_lines,
+     {{sline,{line,9895000,1391000,174367},false}}},
+ {slope_sorted,
+     [{sline,{line,-93000,2500,23361},false},
+      {sline,{line,-280000,188750,260401},false},
+      {sline,{line,241,-1367,1250},false},
+      {sline,{line,-1036,-5877,104},false},
+      {sline,{line,198750,272500,259687},false},
+      {sline,{line,165000,65000,44399},false},
+      {sline,{line,9895000,1391000,174367},false},
+      {sline,{line,-1727500,197500,406601},true},
+      {sline,{line,-367000,266000,293261},true},
+      {sline,{line,1036,5877,104},true},
+      {sline,{line,2540000,3750000,2927869},true},
+      {sline,{line,3115000,1555000,814317},true},
+      {sline,{line,24285000,6055000,435867},true}]},
+ {slope_sorted,
+     [{sline,{line,-93000,2500,23361},false},
+      {sline,{line,-280000,188750,260401},false},
+      {sline,{line,241,-1367,1250},false},
+      {sline,{line,-1036,-5877,104},false},
+      {sline,{line,198750,272500,259687},false},
+      {sline,{line,165000,65000,44399},false},
+      {sline,{line,-1727500,197500,406601},true},
+      {sline,{line,-367000,266000,293261},true},
+      {sline,{line,1036,5877,104},true},
+      {sline,{line,2540000,3750000,2927869},true},
+      {sline,{line,3115000,1555000,814317},true},
+      {sline,{line,24285000,6055000,435867},true}]},
+ {region,
+     [{42.00378125178645,9.998415361247561},
+      {43.00366316436866,7.998610516694492},
+      {45.001205267428006,7.002065746177191},
+      {47.001130335943564,8.001496416171403},
+      {48.00051999413438,10.003187674182703},
+      {47.000998541442726,12.001632366643221},
+      {44.998848974037486,13.00234658179361},
+      {43.00328334443247,12.003694177689724}]}}
+        = test5(),
+    {{slope_sorted,
+      [{sline,{line,1727500,-197500,406601},false},
+       {sline,{line,367000,-266000,293261},false},
+       {sline,{line,-2540000,-3750000,2927869},false},
+       {sline,{line,-3115000,-1555000,814317},false},
+       {sline,{line,93000,-2500,23361},true},
+       {sline,{line,280000,-188750,260401},true},
+       {sline,{line,-1564,8867,10000},true},
+       {sline,{line,-198750,-272500,259687},true},
+       {sline,{line,-165000,-65000,44399},true}]},
+     {pointified,
+      [{-48.00051999413438,10.003187674182698},
+       {-47.000998541442726,12.001632366643207},
+       {-44.998848974037486,13.002346581793574},
+      {-43.00328334443247,12.00369417768971},
+       {22.49795443122679,-52.61017534869952},
+       {-22.550136948296064,252.54002783719403},
+       {-43.00366316436866,7.99861051669447},
+       {-45.001205267428006,7.0020657461771805},
+       {-47.001130335943564,8.001496416171392}]},
+ {region,
+  [{-48.00051999413438,10.003187674182698},
+   {-47.000998541442726,12.001632366643207},
+   {-44.998848974037486,13.002346581793574},
+   {-43.00328334443247,12.00369417768971},
+   {-42.00378125178645,9.998415361247567},
+   {-43.00366316436866,7.99861051669447},
+   {-45.001205267428006,7.0020657461771805},
+   {-47.001130335943564,8.001496416171392}]}}
+        = test6(),
+    ok.
     
     
