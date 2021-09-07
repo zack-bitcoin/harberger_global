@@ -13,9 +13,9 @@ to_float(Z) -> Z#rat.t / Z#rat.b.
 zero(X) -> X#rat.t == 0.
 positive(#rat{t = T, b = B}) -> (T*B) > 0.
 equal(R1, R2) ->
+    %unused
     (R1#rat.t * R2#rat.b) ==
         (R2#rat.t * R1#rat.b).
-%gcf(#rat{t = T, b = B}) -> gcf(T, B).
 gcf(X, Y) when (abs(Y) > abs(X)) -> 
     gcf(Y, X);
 gcf(X, 0) -> X;
@@ -33,8 +33,7 @@ sub(#rat{t = T1, b = B1},
                      b = B1*B2}).
 add(A, B) -> sub(A, negative(B)).
 add(A, B, C) -> add(A, add(B, C)).
-divide(A, B) ->
-    mul(A, inverse(B)).
+divide(A, B) -> mul(A, inverse(B)).
 inverse(#rat{t = T, b = B}) ->
     #rat{t = B, b = T}.
 negative(N = #rat{t = T}) ->

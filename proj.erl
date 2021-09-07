@@ -35,8 +35,10 @@ make_line(X, Y, Z) ->
     dual(make_point(X, Y, Z)).
 make_triangle(P1 = #point{}, P2 = #point{}, 
               P3 = #point{}) ->
+    %unused
     #triangle{p1 = P1, p2 = P2, p3 = P3}.
 make_trilateral(L1, L2, L3) ->
+    %unused
     dual(make_triangle(
            dual(L1), dual(L2), dual(L3))).
 simplify(#point{x = X, y = Y, z = Z}) ->

@@ -1,11 +1,10 @@
 -module(globe).
 %distances, areas, and directions between points on earth.
--export([
-         gps_to_point/1, point_to_gps/1,
+-export([gps_to_point/1, point_to_gps/1,
          distance/2, area/3, seperation/2,
-         gpsify/1,
-         test/0, test2/0, test3/0
-]).
+         gpsify/1, 
+         test/0, test2/0, test3/0]).
+
 -define(radius, 6371000). 
 %-define(max, 4294967295).%2^32 - 1
 -define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
@@ -15,6 +14,7 @@
 -record(line, {x, y, z}).
 -record(srat, {rat, s}).
 -record(triangle, {x, y, z}).
+
 point_to_gps(
   #spoint{point = #point{x = X, y = Y, z = Z}, 
           s = S}) ->
@@ -96,18 +96,11 @@ area(P1, P2, P3) ->
     T = #triangle{x = P1, y = P2, z = P3},
     A = spherical_trig:area(T),
     A * ?radius * ?radius.
-area([P1, P2, P3]) -> area(P1, P2, P3);
-area([H|T]) ->
-    area2(H, T).
-area2(_, [_]) -> 0;
-area2(H, [A, B|R]) -> 
-    area(H, A, B) + area2(H, [B|R]).
 seperation(P1, P2) ->
     Dir = (spherical_trig:direction(P1, P2)),
     Dis = distance(P1, P2),
     Dir0 = if
-               Dir > 180 ->
-                   Dir - 360;
+               Dir > 180 -> Dir - 360;
                true -> Dir
            end,
     {Dir0, Dis}.

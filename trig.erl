@@ -1,11 +1,9 @@
 -module(trig).
 %planar trigonometry over the rationals.
 -export([spread_to_angle/1,
-         spread/2, negative/1,
-         point_to_vector/1,
-         sub/2, determinate/2,
-         clockwise/3, test/0]).
--record(line, {x, y, z}).%3 integers
+         spread/2, clockwise/3, 
+         test/0]).
+%-record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers
 -record(vector, {x, y}).%2 rationals
 -record(vector3, {x, y, z}).%3 rationals
@@ -45,10 +43,12 @@ dot(#vector3{x = X1, y = Y1, z = Z1},
       rat:mul(Y1, Y2),
       rat:mul(Z1, Z2)).
 cross(P1 = #point{}, P2 = #point{}) ->
+    %unused
     cross(point_to_3vector(P1),
           point_to_3vector(P2));
 cross(#vector3{x = X1, y = Y1, z = Z1},
       #vector3{x = X2, y = Y2, z = Z2}) ->
+    %unused
     #vector3{x = rat:sub(rat:mul(Y1, Z2),
                          rat:mul(Y2, Z1)),
              y = rat:sub(rat:mul(Z1, X2),
@@ -83,6 +83,7 @@ negative(#vector3{x = X1, y = Y1, z = Z1}) ->
 sub(V1, V2) ->
     add(V1, negative(V2)).
 perpendicular(V1, V2) ->
+    %unused
     %v3 = v2 - v1
     %Q1 + Q2 = Q3
     %spread is one.
@@ -94,8 +95,8 @@ parallel(V1 = #vector{},
     %spread is zero for rationals.
     %perpendicular(V1, make_perp(V2)).
     rat:zero(determinate(V1, V2));
-parallel(V1 = #vector3{x = X1, y = Y1, z = Z1},
-         V2 = #vector3{x = X2, y = Y2, z = Z2}) ->
+parallel(#vector3{x = X1, y = Y1, z = Z1},
+         #vector3{x = X2, y = Y2, z = Z2}) ->
     %v3 = v2 - v1
     %(Q1 + Q2 + Q3)^2 = 2*(Q1^2 + Q2^2 + Q3^2)
     %spread is zero for rationals.
@@ -111,9 +112,10 @@ make_perp(#vector{x = X, y = Y}) ->
 determinate(V1 = #vector{}, V2 = #vector{}) ->
     dot(V1, make_perp(V2)).
 determinate(
-  V1 = #vector3{x = X1, y = Y1, z = Z1},
-  V2 = #vector3{x = X2, y = Y2, z = Z2},
-  V3 = #vector3{x = X3, y = Y3, z = Z3}) ->
+  #vector3{x = X1, y = Y1, z = Z1},
+  #vector3{x = X2, y = Y2, z = Z2},
+  #vector3{x = X3, y = Y3, z = Z3}) ->
+    %unused
     rat:sub(
       rat:add(rat:mul(X1, Y2, Z3),
               rat:mul(Y1, Z2, X3),
@@ -122,6 +124,7 @@ determinate(
               rat:mul(Y3, Z2, X1),
               rat:mul(Z3, X2, Y1))).
 quadrance_to_distance(R) -> 
+    %unused
     math:sqrt(rat:to_float(R)).
 quadrance(V) -> dot(V, V).
 spread(V1 = #point{}, V2 = #point{}) ->
@@ -139,6 +142,7 @@ spread(V1, V2) ->
                  rat:mul(quadrance(V1),
                          quadrance(V2)))).
 solid_spread(V1, V2, V3) ->
+    %unused
     D = determinate(V1, V2, V3),
     rat:divide(rat:mul(D, D),
                rat:mul(quadrance(V1),
@@ -153,6 +157,7 @@ spread_to_angle(R) ->
     
 cross_law(Q1, Q2, Q3) ->
     %returns spread3
+    %unused
     L = rat:square(
           rat:sub(
             rat:add(Q1, Q2),
@@ -166,9 +171,11 @@ cross_law(Q1, Q2, Q3) ->
 
 spread_law_s(Q1, S2, Q2) ->
     %returns spread1
+    %unused
     rat:divide(rat:mul(Q1, S2), Q2).
 spread_law_q(S1, S2, Q2) ->
     %returns quadrance1
+    %unused
     rat:divide(rat:mul(Q2, S1), S2).
 
 test() ->
@@ -177,8 +184,8 @@ test() ->
     V1 = point_to_vector(P1),
     V2 = point_to_vector(P2),
 
-    {V1, V2,
-     sub(V1, V2)},
+    %{V1, V2,
+    % sub(V1, V2)},
     
     V3 = #vector3{x = rat:make(1, 2),
                   y = rat:make(5, 3),

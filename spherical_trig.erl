@@ -1,10 +1,7 @@
 -module(spherical_trig).
 -export([
-         join/2, meet/2, dual/1,
+         join/2, dual/1,
          area/1, quadrance/2,direction/2, 
-         same_hemisphere/2, 
-         make_trilateral/3,
-         trilateral_to_triangle/1,
          region/1,
          test/0, test2/0, test3/0, test4/0,
          test5/0, test6/0, test7/0]).
@@ -18,7 +15,6 @@
 -record(srat, {rat, s}).%rat is a rational. s is for whether we are talking about the big or small angle. true indicates the short distance.
 
 %s is for whether this indicates an quadrance that crosses the equator, or a lune that contains a north or south pole.
--record(rat, {top, bottom}).
 
 make_trilateral(X, Y, Z) ->
     #trilateral{x = X, y = Y, z = Z}.
@@ -27,8 +23,8 @@ make_triangle(X, Y, Z) ->
 
 quadrance(P1 = #point{}, P2 = #point{}) ->
     trig:spread(P1, P2);
-quadrance(SP1 = #spoint{point = P1, s = S1}, 
-          SP2 = #spoint{point = P2, s = S2}) ->
+quadrance(SP1 = #spoint{point = P1}, 
+          SP2 = #spoint{point = P2}) ->
     SBig = same_hemisphere(SP1, SP2),
     Rat = quadrance(P1, P2),
     #srat{rat = Rat, s = SBig}.
@@ -43,12 +39,12 @@ dot2(#sline{line = P1, s = S1}, #sline{line = P2, s = S2}) ->
     end;
 dot2(P1 = #spoint{}, P2 = #spoint{}) ->
     dot2(dual(P1), dual(P2)).
-dot(P1 = #point{x = X1, y = Y1, z = Z1}, 
-    P2 = #point{x = X2, y = Y2, z = Z2}) ->
+dot(#point{x = X1, y = Y1, z = Z1}, 
+    #point{x = X2, y = Y2, z = Z2}) ->
     (X1 * X2) + (Y1 * Y2) + (Z1 * Z2);
 dot(P1 = #line{}, P2 = #line{}) ->
     dot(proj:dual(P1), proj:dual(P2)).
-quadrances(T = #triangle{x = X, y = Y, z = Z}) ->
+quadrances(#triangle{x = X, y = Y, z = Z}) ->
     [quadrance(Y, Z),
      quadrance(Z, X),
      quadrance(Y, X)].
@@ -61,8 +57,8 @@ dual(#sline{line = L, s = S}) ->
 dual(#spoint{point = P, s = S}) ->
     #sline{line = proj:dual(P), s = S}.
 
-meet(L1 = #sline{}, L2 = #sline{}) ->
-    dual(join(dual(L1), dual(L2))).
+%meet(L1 = #sline{}, L2 = #sline{}) ->
+%    dual(join(dual(L1), dual(L2))).
 join(#spoint{point = P1, s = S1},
      #spoint{point = P2, s = S2}) ->
     %for S, take the cross product of the vector starting at the center of the globe, and passing through that point.
@@ -76,8 +72,8 @@ join(#spoint{point = P1, s = S1},
     CircleContainsNorth = A > B,
     #sline{line = proj:join(P1, P2),
            s = CircleContainsNorth xor S1 xor S2}.
-flip_hemisphere(Tl = #trilateral{
-                  x = X, y = Y, z = Z}) ->
+flip_hemisphere(#trilateral{
+                   x = X, y = Y, z = Z}) ->
     #trilateral{x = X#sline{s = not(X#sline.s)},
                 y = Y#sline{s = not(Y#sline.s)},
                 z = Z#sline{s = not(Z#sline.s)}}.
