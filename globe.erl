@@ -7,8 +7,8 @@
          test/0, test2/0, test3/0
 ]).
 -define(radius, 6371000). 
--define(max, 4294967295).%2^32 - 1
-%-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
+%-define(max, 4294967295).%2^32 - 1
+-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
 -record(spoint, {point, s}).
 -record(sline, {line, s}).
 -record(point, {x, y, z}).

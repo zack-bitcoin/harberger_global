@@ -226,7 +226,8 @@ pointify2([A, B, C|T]) ->
     T2 = trilateral_to_triangle(T1),
     #triangle{x = Z} = T2,
     [Z|pointify2([B, C|T])].
-concurrent(#sline{line = X}, #sline{line = Y},
+concurrent(#sline{line = X}, 
+           #sline{line = Y},
            #sline{line = Z}) ->
     proj:concurrent(X, Y, Z).
 remove_concurrents([A, B, C|T]) -> 
