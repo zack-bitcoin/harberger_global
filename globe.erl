@@ -2,7 +2,7 @@
 %distances, areas, and directions between points on earth.
 -export([gps_to_point/1, point_to_gps/1,
          distance/2, area/3, seperation/2,
-         gpsify/1, 
+         gpsify/1, area/1,
          test/0, test2/0, test3/0]).
 
 -define(radius, 6371000). 
@@ -58,7 +58,9 @@ gps_to_point({Lat0, Long0}) ->
       x = round(X), 
       y = round(Y), 
       z = round(Z)},
-    #spoint{point = simplify(P), s = S}.
+    P2 = simplify(P),
+    #spoint{point = P2, s = S}.
+    
 gpsify(L) -> lists:map(fun point_to_gps/1, L).
 simplify(L = #point{}) ->
     proj:dual(simplify(proj:dual(L)));
@@ -96,6 +98,10 @@ area(P1, P2, P3) ->
     T = #triangle{x = P1, y = P2, z = P3},
     A = spherical_trig:area(T),
     A * ?radius * ?radius.
+area(L) ->
+    A = spherical_trig:area(L),
+    A * ?radius * ?radius.
+
 seperation(P1, P2) ->
     Dir = (spherical_trig:direction(P1, P2)),
     Dis = distance(P1, P2),
@@ -186,6 +192,7 @@ test3() ->
     %io:fwrite("region 3\n"),
     %Ls = region([L4, L3, L5, L2, L1]),
     %Ls = region([L4, L3, L5, L2, L1, L6]),
+    Ps = [P2, P3, P4, P5, P1],
     {
       %Ls,
       [P2, P3, P4, P5, P1],
@@ -193,5 +200,8 @@ test3() ->
      area(P1, P2, P3)/ 1000000,
      area(P1, P3, P4)/ 1000000,
      area(P1, P4, P5)/ 1000000,
+      area(Ps)/1000000,
+      area(lists:reverse(Ps))/1000000,
+      area([P1, P2, P3, P4, P5, P4, P3, P2])/1000000,
      distance(P1, P2)/1000}.
     

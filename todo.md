@@ -1,5 +1,8 @@
+spherical_trig remove_excess_lines2.
+we need to test the case where we cut off more than one point. Maybe we don't need remove_if_touch_2/2
 
-It seems like we cannot support lines that go through the north pole? We should do tests to verify if this is the case or not.
+
+we need better tests.
 
 A visualizer on a map would be nice.
 

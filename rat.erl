@@ -20,9 +20,13 @@ gcf(X, Y) when (abs(Y) > abs(X)) ->
     gcf(Y, X);
 gcf(X, 0) -> X;
 gcf(X, Y) -> gcf(Y, X rem Y).
-simplify(#rat{t = T, b = B}) ->
+simplify(R = #rat{t = T, b = B}) ->
     G = gcf(T, B),
-    #rat{t = T div G, b = B div G}.
+    case G of
+        0 -> R;
+        _ ->
+            #rat{t = T div G, b = B div G}
+    end.
 mul(#rat{t = T1, b = B1}, 
     #rat{t = T2, b = B2}) ->
     simplify(#rat{t = T1*T2, b = B1 * B2}).

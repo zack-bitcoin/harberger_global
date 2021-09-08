@@ -43,9 +43,18 @@ make_trilateral(L1, L2, L3) ->
            dual(L1), dual(L2), dual(L3))).
 simplify(#point{x = X, y = Y, z = Z}) ->
     G = gcd(X, Y, Z),
-    #point{x = X div G, 
-           y = Y div G, 
-           z = Z div G};
+    X2 = X div G,
+    Y2 = Y div G,
+    Z2 = Z div G,
+    {X3, Y3, Z3} = 
+        if
+            ((Z == 0) and (X2 < 0)) ->
+                {-X2, -Y2, 0};
+            true -> {X2, Y2, Z2}
+        end,
+    #point{x = X3, 
+           y = Y3, 
+           z = Z3};
 simplify(L = #line{}) ->
     dual(simplify(dual(L))).
     

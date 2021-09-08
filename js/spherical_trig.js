@@ -23,6 +23,9 @@ var spherical_trig = (function(){
         } else if(t === "sline"){
             return({type: "spoint",
                     point: proj.dual(a.line)});
+        } else if(t === "spoint"){
+            return({type: "sline",
+                    point: proj.dual(a.point)});
         } else {
             console.log("unsupported dual");
         };
@@ -37,7 +40,7 @@ var spherical_trig = (function(){
     };
     function spread_to_angle(srat){
         var [a1, a2] =
-            tri.spread_to_angle(srat.rat);
+            trig.spread_to_angle(srat.rat);
         if(srat.s){
             return(a1);
         } else {
@@ -111,8 +114,11 @@ var spherical_trig = (function(){
         };
     };
     return({
+        join: join,
+        dual: dual,
         area: area,
         quadrance: quadrance,
-        direction: direction
+        direction: direction,
+        region: region //todo
     });
 })();

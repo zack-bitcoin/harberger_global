@@ -1,10 +1,10 @@
 -module(spherical_trig).
 -export([
-         join/2, dual/1,
-         area/1, quadrance/2,direction/2, 
-         region/1,
+         join/2, dual/1, area/1,
+         quadrance/2, direction/2, region/1,
          test/0, test2/0, test3/0, test4/0,
-         test5/0, test6/0, test7/0]).
+         test5/0, test6/0, test8/0,
+         test9/0]).
 
 -record(spoint, {point, s}).%3 integers, and a boolean, for which hemisphere the point is in. s is true if the point is in the northern hemisphere.
 -record(sline, {line, s}).
@@ -20,6 +20,7 @@ make_trilateral(X, Y, Z) ->
     #trilateral{x = X, y = Y, z = Z}.
 make_triangle(X, Y, Z) ->
     #triangle{x = X, y = Y, z = Z}.
+            
 
 quadrance(P1 = #point{}, P2 = #point{}) ->
     trig:spread(P1, P2);
@@ -52,11 +53,19 @@ dual(#trilateral{x = L1, y = L2, z = L3}) ->
     #triangle{x = dual(L1), 
               y = dual(L2), 
               z = dual(L3)};
-dual(#sline{line = L, s = S}) ->
+dual(#sline{line = (L = #line{}), 
+            s = S}) ->
     #spoint{point = proj:dual(L), s = S};
-dual(#spoint{point = P, s = S}) ->
+dual(#spoint{point = (P = #point{}), 
+             s = S}) ->
     #sline{line = proj:dual(P), s = S}.
 
+cross(#point{x = X1, y = Y1, z = Z1},
+      #point{x = X2, y = Y2, z = Z2}) ->
+    %notice we do NOT simplify this point by removing the greatest common denominator.
+    #point{x = (Y1 * Z2) - (Z1 * Y2),
+           y = (Z1 * X2) - (X1 * Z2),
+           z = (X1 * Y2) - (Y1 * X2)}.
 %meet(L1 = #sline{}, L2 = #sline{}) ->
 %    dual(join(dual(L1), dual(L2))).
 join(#spoint{point = P1, s = S1},
@@ -67,9 +76,16 @@ join(#spoint{point = P1, s = S1},
 %    CircleContainsNorth = 
 %        Orthogonal#point.z > 0,
         %dot(North, Orthogonal) > 0,
-    A = (P1#point.x * P2#point.y),
-    B = (P2#point.x * P1#point.y),
-    CircleContainsNorth = A > B,
+    %A = (P1#point.x * P2#point.y),
+    %B = (P2#point.x * P1#point.y),
+    %CircleContainsNorth = not(A < B),
+    #point{x = X, y = Y, z = Z} = cross(P1, P2),
+    CircleContainsNorth = 
+        if
+            (Z == 0) and (X == 0) -> Y > 0;
+            Z == 0 -> X > 0;
+            true -> Z > 0
+        end,
     #sline{line = proj:join(P1, P2),
            s = CircleContainsNorth xor S1 xor S2}.
 flip_hemisphere(#trilateral{
@@ -77,7 +93,7 @@ flip_hemisphere(#trilateral{
     #trilateral{x = X#sline{s = not(X#sline.s)},
                 y = Y#sline{s = not(Y#sline.s)},
                 z = Z#sline{s = not(Z#sline.s)}}.
-clockwise(Tri = #triangle{x = X, y = Y, z = Z}) ->
+clockwise(#triangle{x = X, y = Y, z = Z}) ->
     true xor
     X#spoint.s xor 
         Y#spoint.s xor 
@@ -90,9 +106,8 @@ clockwise(Tri = #triangle{x = X, y = Y, z = Z}) ->
 triangle_to_trilateral(Tri = #triangle{
                          x = X, y = Y, z = Z}) ->
     Clockwise = clockwise(Tri),
-    T2 = #trilateral{x = join(Y, Z),
-                     y = join(Z, X),
-                     z = join(X, Y)},
+    T2 = make_trilateral(
+           join(Y, Z),join(Z, X),join(X, Y)),
     if
         Clockwise -> T2;
         true -> 
@@ -111,6 +126,17 @@ planar_area([A1, A2, A3]) ->
     Area2 = S * (S - A1) * 
         (S - A2) * (S - A3),
     math:sqrt(max(0, Area2)).
+area2([A, B, C|T]) -> 
+    %also works for convex regions.
+    Tri = make_triangle(A, B, C),
+    S = clockwise(Tri),
+    Area = area(Tri),
+    A2 = if
+             S -> Area;
+             true -> -Area
+         end,
+    A2 + area([A, C|T]);
+area2([_, _]) -> 0.
 area(T = #triangle{}) ->
     [A1C, A2C, A3C] = angles(T),
     Area1 = A1C + A2C + A3C - (math:pi()),
@@ -119,7 +145,10 @@ area(T = #triangle{}) ->
     if
         (Area1 < 0.00001) -> Area2;
         true -> Area1
-    end.
+    end;
+area(L) ->
+    min(area2(L),
+        area2(tl(L) ++ [hd(L)])).
 spreads_to_angles(S) ->
     lists:map(fun spread_to_angle/1, S).
 spread_to_angle(#srat{rat = R, s = Big}) ->
@@ -131,23 +160,19 @@ spread_to_angle(#srat{rat = R, s = Big}) ->
 angles(T = #triangle{}) ->
     spreads_to_angles(spreads(T)).
 direction(P1 = #spoint{}, P2 = #spoint{}) ->
+    %NP = proj:make_point(1,1,1000000),
     NP = proj:make_point(0,0,1),
     North = #spoint{point = NP, s = true},
     T = #triangle{x = P1, y = North, z = P2},
-    Angle = spread_to_angle(hd(spreads(T))),
+    S1 = hd(spreads(T)),
+    S2 = S1#srat{s = not(S1#srat.s)},
+    Angle = spread_to_angle(S2),
     A2 = Angle*180/math:pi(),
     Clockwise2 = clockwise(T),
-    A3 = if
-             Clockwise2 -> A2;
-             true -> 360-A2
-         end,
-    180-A3.
-slope_sort(L) ->
-    lists:sort(
-      fun(A, B) ->
-              rat:less_than(
-                slope(B), slope(A))
-      end, L).
+    if
+        Clockwise2 -> 180 - A2;
+        true -> A2 - 180
+    end.
 contains(_, [], E, C) -> 
     {lists:reverse(E), lists:reverse(C)};
 contains(New = #spoint{}, 
@@ -158,25 +183,71 @@ contains(New = #spoint{},
                   true -> {E, [Sp|C]} end,
     contains(New, Points, E2, C2).
 remove_excess_lines([A, B, C|L]) ->
-    remove_excess_lines2([A, B, C], L).
+    Tri = make_trilateral(A, B, C),
+    Tri2 = trilateral_to_triangle(Tri),
+    Clockwise = clockwise(Tri2),
+    if
+        (Clockwise) ->
+            remove_excess_lines2([A, B, C], L);
+        true ->
+            remove_excess_lines2([A, C, B], L)
+    end.
     %start with a trilateral, keep trying to add more lines constraining the space.
 remove_excess_lines2(Lines, []) -> Lines;
 remove_excess_lines2(Lines, T) ->
-    Points = pointify(slope_sort(Lines)),
+    %Points = pointify(slope_sort(Lines)),
+    Points = pointify(Lines),
     {E, C} = contains(dual(hd(T)), 
                       Points, [], []),
-    case C of
-        [] -> {error, empty_region};
-        _ -> remove_excess_lines3(Lines, E, T)
+    if
+        (C == []) -> {error, empty_region};
+        (E == []) ->
+   %If a new line contains all existing points, then we should drop that line.
+            io:fwrite("contains all the points\n"),
+            remove_excess_lines2(Lines, tl(T));
+        (length(E) == 1) ->
+            io:fwrite("cut off one point\n"),
+            Lines2 = rotate_to_meet(Lines, hd(E), length(Lines)),
+            remove_excess_lines2([hd(T)|Lines2], tl(T));
+        true -> %remove_excess_lines3(Lines, C, E, T)
+            io:fwrite("cut off more than one point\n"),
+            Lines2 = remove_if_touch_2(Lines, E),%todo. maybe we don't need this
+            Lines3 = rotate_to_unlisted(Lines2, C, length(Lines)),
+            Lines4 = [hd(T)|Lines3],
+            remove_excess_lines2(Lines4, tl(T))
     end.
-remove_excess_lines3(Lines, E, [New|T]) ->
-    Lines2 = remove_if_touch_2(Lines, E),
-    Lines3 = if %If a new line contains all existing points, then we should drop that line.
-                 (E == []) -> Lines2;
-                 true -> [New|Lines2]
-             end,
-    remove_excess_lines2(Lines3, T).
+rotate_to_meet(_, _, -2) ->
+    io:fwrite("rotate to meet error\n"),
+    error;
+rotate_to_meet([A, B, C|T], Meet, Limit) ->
+    Lat = make_trilateral(A, B, C),
+    Tri = trilateral_to_triangle(Lat),
+    #triangle{z = M} = Tri,
+    if
+        M == Meet ->
+            [B, C|T]++[A]; 
+        true ->
+            rotate_to_meet([B, C|T]++[A], Meet, Limit - 1)
+    end.
+rotate_to_unlisted(_, _, -2) ->
+    io:fwrite("rotate to unlisted error\n"),
+    error;
+rotate_to_unlisted([A, B, C|T], L, Limit) ->
+    Lat = make_trilateral(A, B, C),
+    Tri = trilateral_to_triangle(Lat),
+    #triangle{z = M} = Tri,
+    Bool = is_in(M, L),
+    if
+        not(Bool) -> [B|T]++[A];
+        true -> rotate_to_unlisted(
+                  [B|T]++[A], L, Limit - 1)
+    end.
+is_in(_, []) -> false;
+is_in(X, [X|_]) -> true;
+is_in(X, [_|T]) -> is_in(X, T).
+    
 remove_if_touch_2(Lines, Ps) 
+%currently unused, but  maybe it is an error and we need it.
   when (length(Ps) < 2) -> Lines;
 remove_if_touch_2(Lines, Ps) ->
     lists:filter(
@@ -188,26 +259,6 @@ remove_if_touch_2(Lines, Ps) ->
                   end, Ps)) < 2
       end, 
       Lines).
-slope(#sline{line = #line{x = X, y = Y}, 
-             s = S}) ->
-    One = rat:make(1, 1),
-    Slope1 = rat:make(-X, Y),
-    B = rat:positive(Slope1),
-    Slope2 = 
-        %monatonic from rationals -> positive rationals
-        if
-            B -> 
-                %from positives to rationals > 1.
-                rat:add(One, Slope1);
-            true ->
-                %from negatives to rationals < 1 and > 0.
-                rat:inverse(rat:sub(One, Slope1))
-        end,
-    if
-        %lower hemisphere is negatives.
-        S -> Slope2;
-        true -> rat:inverse(rat:negative(Slope2))
-    end.
 linify([H|T]) ->
     %starts with point preceding first line.
     %used for tests.
@@ -215,6 +266,14 @@ linify([H|T]) ->
     linify2([H|T]) ++ [X].
 linify2([_]) -> [];
 linify2([A|[B|T]]) -> [join(A, B)|linify2([B|T])].
+new_linify(P) ->
+    linify2(P ++ [hd(P), hd(tl(P))]).
+new_linify2([_, _]) -> [];
+new_linify2([A, B, C|T]) -> 
+    T1 = make_triangle(A, B, C),
+    T2 = triangle_to_trilateral(T1),
+    #trilateral{x = Z} = T2,
+    [Z|linify2([B, C|T])].
 pointify(L) -> pointify2(L ++ [hd(L), hd(tl(L))]).
 pointify2([_, _]) -> [];
 pointify2([A, B, C|T]) ->
@@ -241,9 +300,9 @@ region(L) ->
     if
         length(L) < 3 -> empty_region;
         true ->
-            L2 = slope_sort(L),
-            L4 = slope_sort(remove_excess_lines(L2)),
-            L5 = slope_sort(remove_concurrents(L4)),
+            L2 = L,
+            L4 = remove_excess_lines(L2),
+            L5 = remove_concurrents(L4),
             if
                 (L5 == L4) -> pointify(L4);
                 true -> region(L5)
@@ -256,6 +315,8 @@ test() ->
     P1 = #spoint{point = #point{x = 0, y = -B, z = B}, s = true},
     P2 = #spoint{point = #point{x = 0-1, y = -B - 5, z = B}, s = true},
     P3 = #spoint{point = #point{x = 0+1, y = -B-5, z = B}, s = true},
+    %Tokyo = #spoint{point = #point{x = 45091, y = 53075, z = 50000}, s = true},
+    %Mel = #spoint{point = #point{x = -36991, y = -52750, z = 50000}, s = false},
     Tokyo = #spoint{point = #point{x = 4509, y = 5307, z = 5000}, s = true},
     Mel = #spoint{point = #point{x = -3699, y = -5275, z = 5000}, s = false},
     Sydney = #spoint{point = #point{x = -3607, y = -6508, z = 5000}, s = false},
@@ -388,10 +449,6 @@ test5() ->
     %L = [L1, L2, L3, L4, L5, L6, L7, L8],
     {
       {bad_lines, {NB1}},
-      {slope_sorted, slope_sort(L)},
-      %{pointify, globe:gpsify(pointify(slope_sort(L)))},
-      %{slope_sorted, slope_sort(remove_concurrents2(slope_sort(L)))},
-      {slope_sorted, slope_sort(remove_concurrents(slope_sort(L)))},
       {region, globe:gpsify(region(L))}
       %lists:map(fun(X) -> point_to_gps(X) end,
       %           region(L))}
@@ -419,82 +476,82 @@ test6() ->
     UL1b = UL1#sline{s = not(UL1#sline.s)},
     L = linify(Ps) ++ [UL1b],
     {
-      {slope_sorted, slope_sort(L)},
       %{pointified1, globe:gpsify(Ps)},
-      %{pointified, globe:gpsify(pointify(lists:reverse(slope_sort(L))))},
-      {pointified, globe:gpsify(pointify(slope_sort(L)))},
+      {pointified, globe:gpsify(pointify(L))},
       {region, globe:gpsify(region(L))}
     }.
-test7() ->
-{{bad_lines,
-     {{sline,{line,9895000,1391000,174367},false}}},
- {slope_sorted,
-     [{sline,{line,-93000,2500,23361},false},
-      {sline,{line,-280000,188750,260401},false},
-      {sline,{line,241,-1367,1250},false},
-      {sline,{line,-1036,-5877,104},false},
-      {sline,{line,198750,272500,259687},false},
-      {sline,{line,165000,65000,44399},false},
-      {sline,{line,9895000,1391000,174367},false},
-      {sline,{line,-1727500,197500,406601},true},
-      {sline,{line,-367000,266000,293261},true},
-      {sline,{line,1036,5877,104},true},
-      {sline,{line,2540000,3750000,2927869},true},
-      {sline,{line,3115000,1555000,814317},true},
-      {sline,{line,24285000,6055000,435867},true}]},
- {slope_sorted,
-     [{sline,{line,-93000,2500,23361},false},
-      {sline,{line,-280000,188750,260401},false},
-      {sline,{line,241,-1367,1250},false},
-      {sline,{line,-1036,-5877,104},false},
-      {sline,{line,198750,272500,259687},false},
-      {sline,{line,165000,65000,44399},false},
-      {sline,{line,-1727500,197500,406601},true},
-      {sline,{line,-367000,266000,293261},true},
-      {sline,{line,1036,5877,104},true},
-      {sline,{line,2540000,3750000,2927869},true},
-      {sline,{line,3115000,1555000,814317},true},
-      {sline,{line,24285000,6055000,435867},true}]},
- {region,
-     [{42.00378125178645,9.998415361247561},
-      {43.00366316436866,7.998610516694492},
-      {45.001205267428006,7.002065746177191},
-      {47.001130335943564,8.001496416171403},
-      {48.00051999413438,10.003187674182703},
-      {47.000998541442726,12.001632366643221},
-      {44.998848974037486,13.00234658179361},
-      {43.00328334443247,12.003694177689724}]}}
-        = test5(),
-    {{slope_sorted,
-      [{sline,{line,1727500,-197500,406601},false},
-       {sline,{line,367000,-266000,293261},false},
-       {sline,{line,-2540000,-3750000,2927869},false},
-       {sline,{line,-3115000,-1555000,814317},false},
-       {sline,{line,93000,-2500,23361},true},
-       {sline,{line,280000,-188750,260401},true},
-       {sline,{line,-1564,8867,10000},true},
-       {sline,{line,-198750,-272500,259687},true},
-       {sline,{line,-165000,-65000,44399},true}]},
-     {pointified,
-      [{-48.00051999413438,10.003187674182698},
-       {-47.000998541442726,12.001632366643207},
-       {-44.998848974037486,13.002346581793574},
-      {-43.00328334443247,12.00369417768971},
-       {22.49795443122679,-52.61017534869952},
-       {-22.550136948296064,252.54002783719403},
-       {-43.00366316436866,7.99861051669447},
-       {-45.001205267428006,7.0020657461771805},
-       {-47.001130335943564,8.001496416171392}]},
- {region,
-  [{-48.00051999413438,10.003187674182698},
-   {-47.000998541442726,12.001632366643207},
-   {-44.998848974037486,13.002346581793574},
-   {-43.00328334443247,12.00369417768971},
-   {-42.00378125178645,9.998415361247567},
-   {-43.00366316436866,7.99861051669447},
-   {-45.001205267428006,7.0020657461771805},
-   {-47.001130335943564,8.001496416171392}]}}
-        = test6(),
-    ok.
+test8() ->    
+    %looks like it fails if any point is on the lines x=0 or y=0 or z=0
+    XD = -45,
+    YD = 0,
+    P1 = globe:gps_to_point({0+YD, -6+XD}),
+    P2 = globe:gps_to_point({4+YD, -4+XD}),
+    P3 = globe:gps_to_point({6+YD,  0+XD}),
+    P4 = globe:gps_to_point({4+YD,  4+XD}),
+    P5 = globe:gps_to_point({0+YD,  6+XD}),
+    P6 = globe:gps_to_point({-4+YD, 4+XD}),
+    P7 = globe:gps_to_point({-6+YD, 0+XD}),
+    P8 = globe:gps_to_point({-4+YD, -4+XD}),
+    Ps = [%P1, P2, 
+          P3, P4,
+          P5, P6, P7, P8,
+          P1, P2
+         ],
+    
+    [L1, L2, L3, L4,
+     L5, L6, L7, L8] = linify(Ps),
+    L = linify(Ps),
+    %Tri = make_triangle(P2, P4, P7),
+    %Tri = make_triangle(P1, P7, P3),
+    Tri = make_triangle(P1, P3, P7),
+    Tri2 = trilateral_to_triangle(
+            triangle_to_trilateral(Tri)),
+    Region = region(L),
+    Region2 = region(lists:reverse(L)),
+    { 
+      Tri, Tri2,
+      %Ps,
+      L,
+      remove_excess_lines(L),
+      %remove_concurrents(remove_excess_lines(L)),
+      %Ps,
+      Region,
+      Region2,
+      %pointify(L),
+      %{points, globe:gpsify(Ps)},
+      %{pointified, globe:gpsify(pointify(L))},
+      %{region, globe:gpsify(region(L))},
+      {area_points, area(Ps)},
+      {region, area(pointify(L))},
+      {region, area(Region)},
+      {region, area(region(lists:reverse(L)))}
+    }.
+    
+test9() ->
+    T = {triangle,{spoint,{point,-188,-37254,65},true},
+         {spoint,{point,100,-57701,3125},true},
+         {spoint,{point,-100,57701,3125},false}},
+    Tb = {triangle,{spoint,{point,-188,-37254,65},true},
+         {spoint,{point,100,-57701,3125},true},
+         {spoint,{point,-101,57701,3125},false}},
+    Trilat = triangle_to_trilateral(T),
+    Trilatb = triangle_to_trilateral(Tb),
+    T2 = trilateral_to_triangle(
+          Trilat),
+    T2b = trilateral_to_triangle(
+          Trilatb),
+    Trilat3 = #trilateral{
+      x = #sline{
+        line = #line{x = 1, y = 1, z = 0},
+        s = true},
+      y = #sline{
+        line = #line{x = 1, y = 1, z = 1},
+        s = true},
+      z = #sline{
+        line = #line{x = 2, y = 1, z = 1},
+        s = true}},
+    {area(T2),
+     T, T2, T2b, Trilat, Trilatb}.
+    
     
     
