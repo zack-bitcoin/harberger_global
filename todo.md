@@ -1,5 +1,4 @@
-spherical_trig remove_excess_lines2.
-we need to test the case where we cut off more than one point. Maybe we don't need remove_if_touch_2/2
+test an enclosure inside a bigger enclosure. for excluding more than one point.
 
 
 we need better tests.

@@ -24,7 +24,8 @@
 %    point_to_gps(#spoint{point = P#point{z = -Z}},
 %                 s = false);
 point_to_gps(
-  #point{x = X, y = Y, z = Z}) ->
+  #spoint{point = #point{x = X, y = Y, z = Z}, 
+          s = S}) ->
     A1 = math:sqrt((X*X) + (Y*Y)),
     AN = math:atan(A1/Z),
     Lat = ((math:pi()/2) - AN) * 180 / math:pi(),
@@ -35,8 +36,17 @@ point_to_gps(
          end,
     %PN = PNc,
     Long = PN * 180 / math:pi(),
-    {Lat, Long}.
-gps_to_point({Lat, Long}) ->
+    if
+        S -> {Lat, Long};
+        true -> {-Lat, Long+180}
+    end.
+gps_to_point({Lat0, Long0}) ->
+    %P={x = X, y = Y, z = Z}
+    {S, Lat, Long} = 
+        if
+            Lat0 < 0 -> {false, -Lat0, Long0+180};
+            true -> {true, Lat0, Long0}
+        end,
     Z = ?max,
     AN = (math:pi()/2) - 
         (Lat * math:pi() / 180),
@@ -56,16 +66,12 @@ gps_to_point({Lat, Long}) ->
       x = round(X), 
       y = round(Y), 
       z = round(Z)},
-    P3 = if
-             (Lat < 0) -> 
-                 spherical_trig:flip_hemisphere(P);
-             true -> P
-         end,
-    P2 = simplify(P3).
+    P2 = simplify(P),
+    #spoint{point = P2, s = S}.
     
 gpsify(L) -> lists:map(fun point_to_gps/1, L).
 simplify(L = #point{}) ->
-    dproj:dual(simplify(dproj:dual(L)));
+    proj:dual(simplify(proj:dual(L)));
 simplify(L) when is_record(L, line) ->
     X = L#line.x,
     Y = L#line.y,
@@ -77,8 +83,8 @@ simplify(L) when is_record(L, line) ->
             X2 = div2(X),
             Y2 = div2(Y),
             Z2 = div2(Z),
-            simplify(dproj:make_line(X2, Y2, Z2));
-        true -> dproj:make_line(X, Y, Z)
+            simplify(proj:make_line(X2, Y2, Z2));
+        true -> proj:make_line(X, Y, Z)
     end.
 div2(X) ->
     case X of
@@ -86,6 +92,7 @@ div2(X) ->
         -1 -> -1;
         X -> X div 2
     end.
+
 distance(P1, P2) ->
     #srat{rat = R, s = S} = 
         spherical_trig:quadrance(P1, P2),
@@ -115,9 +122,12 @@ seperation(P1, P2) ->
 test() ->
     B = 1000000,
     S = 1,
-    P1 = dproj:make_point(B, B, B),
-    P2 = dproj:make_point(B, B+S, B),
-    P3 = dproj:make_point(-B-S, -B, -B),
+    P1 = #spoint{point = proj:make_point(B, B, B),
+                 s = true},
+    P2 = #spoint{point = proj:make_point(B, B+S, B),
+                 s = true},
+    P3 = #spoint{point = proj:make_point(B+S, B, B),
+                 s = false},
     {area(P1, P2, P3), distance(P1, P2), 
      distance(P2, P3), distance(P3, P1),
      seperation(P1, P3)}.
@@ -156,18 +166,17 @@ test3() ->
     L4 = spherical_trig:join(P4, P5),
     L5 = spherical_trig:join(P5, P1),
     %L6 = spherical_trig:dual(P1#spoint{s = not(P3#spoint.s)}),
-    L6 = dproj:dual(P1),
-    L9 = dproj:dual(P2),
-    L7 = spherical_trig:join(#point{x = 1,y = 0,z = 100}, P2),
-    L7b = spherical_trig:join(P2, #point{x = 1,y = 0,z = 100}),
+    L6 = spherical_trig:dual(P1),
+    L9 = spherical_trig:dual(P2),
+    L7 = spherical_trig:join(#spoint{point = #point{x = 1,y = 0,z = 100}, s = true}, P2),
+    L7b = spherical_trig:join(P2, #spoint{point = #point{x = 1,y = 0,z = 100}, s = true}),
     io:fwrite("\n"),
     %L2 = slope_sort(L),
-    L8 = spherical_trig:join(#point{x = 1,y = 0,z = 100}, P5),
-    L8b = spherical_trig:join(P5, #point{x = 1,y = 0,z = 100}),
+    L8 = spherical_trig:join(#spoint{point = #point{x = 1,y = 0,z = 100}, s = true}, P5),
+    L8b = spherical_trig:join(P5, #spoint{point = #point{x = 1,y = 0,z = 100}, s = true}),
     %io:fwrite(concurrent(L7, L1, L2)),
     %io:fwrite({L7, L7b, slope(L7), slope(L7b), slope(L8), slope(L8b)}),
-    L10 = spherical_trig:flip_hemisphere(L6),
-    %L10 = L6#sline{s = not(L6#sline.s)},
+    L10 = L6#sline{s = not(L6#sline.s)},
     %La = [L1, L2, L3, L4, L5],
     %La2 = slope_sort(remove_excess_lines(La2)),
     %Lb2 = slope_sort(La),
