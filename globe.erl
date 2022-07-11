@@ -3,11 +3,19 @@
 -export([gps_to_point/1, point_to_gps/1,
          distance/2, area/3, seperation/2,
          gpsify/1, area/1,
-         test/0, test2/0, test3/0]).
+         test/0, test2/0, test3/0,
+         test/1]).
 
 -define(radius, 6371000). 
+% 4294967296 2^32
+%
+%-define(max, ).
 %-define(max, 4294967295).%2^32 - 1
--define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
+%-define(max, 16777216).
+%-define(max, 67108863).
+-define(max, 268435455).
+%-define(max, 32167).
+%-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
 -record(spoint, {point, s}).
 -record(sline, {line, s}).
 -record(point, {x, y, z}).
@@ -112,6 +120,15 @@ seperation(P1, P2) ->
            end,
     {Dir0, Dis}.
 
+specificity(B, Max) ->
+     {%B,
+      distance({point, 0,0,1},
+               {point, B,0,Max}),
+     %then the points are this far apart, or nearer.
+     distance({point, B, 0, ?max},
+              {point, B-1, 0, 
+               (?max * (B-1) div B)-1})}.
+
 test() ->
     B = 1000000,
     S = 1,
@@ -203,4 +220,48 @@ test3() ->
       area(lists:reverse(Ps))/1000000,
       area([P1, P2, P3, P4, P5, P4, P3, P2])/1000000,
      distance(P1, P2)/1000}.
-    
+test(4) -> 
+    %testing to see how finely detailed the measurements can be. Units are in meters.
+    %seems like there is always a point nearer than ?radius / ?max meters.
+    P1 = {point, 1, 0, ?max},
+    P2 = {point, 0, 0, 1},
+    M2 = ?max div 2,
+
+    P3 = {point, M2, M2, M2 + 1},
+    P4 = {point, M2 + 1, M2 + 1, M2 + 2},
+
+    %20 kilometers
+    BoundConstant = max(1, ?max * 20000 div ?radius),
+    %200 kilometers
+    BoundConstant2 = max(1, ?max * 200000 div ?radius),
+    %2000 kilometers
+    BoundConstant3 = max(1, ?max * 2000000 div ?radius),
+    %10000 kilometers
+    BoundConstant4 = max(1, ?max * 10000000 div ?radius),
+    %20000 kilometers
+    BoundConstant5 = max(1, ?max * 20000000 div ?radius),
+
+    %these 3 distances, gaps between the pole and it's nearest points, and the prime meridian. They are the worst case. Every other point has neighbors nearer to them than these spots.
+    {{polar, 
+      distance({point, 1, 0, ?max}, 
+               {point, 0,0,1})},
+     {equitorial1, 
+      distance({point, 1, 0, 1},
+               {point, ?max-1, 0, ?max})},
+     {equitorial2,
+      distance({point, 1,0,1},
+               {point, ?max, 1, ?max})},
+     %here is the nearest 2 points, for the best possible case.
+      {best,
+       distance({point, ?max-1, ?max-1, ?max-2},
+                {point, ?max-2, ?max-2, ?max-3})},
+     {at_different_radius_from_polar,
+     specificity(BoundConstant, ?max),
+     specificity(BoundConstant2, ?max),
+     specificity(BoundConstant3, ?max),
+     specificity(BoundConstant4, ?max),
+     specificity(BoundConstant5, ?max)
+     },
+     {radius_over_max, ?radius / ?max}
+    }.
+                    
