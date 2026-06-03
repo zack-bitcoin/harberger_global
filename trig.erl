@@ -2,6 +2,8 @@
 %planar trigonometry over the rationals.
 -export([spread_to_angle/1,
          spread/2, clockwise/3, 
+	 point_to_3vector/1,
+	 dot/2,
          test/0]).
 %-record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers
@@ -141,6 +143,8 @@ spread(V1, V2) ->
       rat:divide(rat:mul(D, D), 
                  rat:mul(quadrance(V1),
                          quadrance(V2)))).
+% - ((d*d)/(q(v1) * q(v2)))
+
 solid_spread(V1, V2, V3) ->
     %unused
     D = determinate(V1, V2, V3),

@@ -1,9 +1,12 @@
 -module(globe).
 %distances, areas, and directions between points on earth.
 -export([gps_to_point/1, point_to_gps/1,
-         distance/2, area/3, seperation/2,
+         distance/2, distance_point_line/2,
+	 line_dist_try/3,
+	 area/3, seperation/2,
          gpsify/1, area/1,
          test/0, test2/0, test3/0,
+	 estimate_line/2, simplify/1,
          test/1]).
 
 -define(radius, 6371000). 
@@ -13,14 +16,22 @@
 %-define(max, 4294967295).%2^32 - 1
 %-define(max, 16777216).
 %-define(max, 67108863).
--define(max, 268435455).
-%-define(max, 32167).
-%-define(max, 10000).%useful for testing, so the numbers are small enough to be readable.
+%-define(max, 268435455).
+%-define(max, 134217727).
+-define(max, 32767).%2^15 - 1
+%-define(max, 8191).
+%-define(max, 16383).%2^14 - 1
+%-define(max, 2047).
+%-define(max, 65535).
+%-define(max, 1048575).
+%-define(max, 131071).
+%-define(max, 63).
 -record(spoint, {point, s}).
 -record(sline, {line, s}).
 -record(point, {x, y, z}).
 -record(line, {x, y, z}).
 -record(srat, {rat, s}).
+-record(rat, {t, b}).
 -record(triangle, {x, y, z}).
 
 %point_to_gps(
@@ -74,7 +85,8 @@ gps_to_point({Lat, Long}) ->
 gpsify(L) -> lists:map(fun point_to_gps/1, L).
 simplify(L = #point{}) ->
     dproj:dual(simplify(dproj:dual(L)));
-simplify(L) when is_record(L, line) ->
+simplify(L0) when is_record(L0, line) ->
+    L = proj:simplify(L0),
     X = L#line.x,
     Y = L#line.y,
     Z = L#line.z,
@@ -82,21 +94,32 @@ simplify(L) when is_record(L, line) ->
         ((abs(X) > ?max) 
          or (abs(Y) > ?max)
          or (abs(Z) > ?max)) ->
-            X2 = div2(X),
-            Y2 = div2(Y),
-            Z2 = div2(Z),
+	    Max = max(max(abs(X), abs(Y)), abs(Z)),
+	    Fold = rat:make(?max, Max),%this scales to use all available space.
+	    X2 = divg(X, Fold),
+	    Y2 = divg(Y, Fold),
+	    Z2 = divg(Z, Fold),
             simplify(dproj:make_line(X2, Y2, Z2));
         true -> dproj:make_line(X, Y, Z)
     end.
-div2(X) ->
-    case X of
-        1 -> 1;
-        -1 -> -1;
-        X -> X div 2
+divg(X, G) ->
+    A = X*G#rat.t div G#rat.b,
+    if
+	(X == 0) -> 0;
+	(A == 0) and (X > 0) -> 1;
+	(A == 0) and (X < 0) -> -1;
+	true -> A
     end.
+distance(P1, {point, 0, 0, 0}) ->
+    1000000000000000000000000000;
 distance(P1, P2) ->
     #srat{rat = R, s = S} = 
         spherical_trig:quadrance(P1, P2),
+    RB = R == {rat, 0, 0},
+    if
+	RB -> io:fwrite({P1, P2});
+	true -> ok
+    end,
     {A1, A2} = trig:spread_to_angle(R),
     A3 = if
              S -> A1;
@@ -263,5 +286,77 @@ test(4) ->
      specificity(BoundConstant5, ?max)
      },
      {radius_over_max, ?radius / ?max}
-    }.
-                    
+    };
+test(6) ->
+    X = (5*?max) - (?max div 7),
+    Y = (?max) + (?max div 11),
+    Z = (?max) + (?max div 19),
+    X2 = X-1,
+    Y2 = Y+3,
+    Z2 = Z+2,
+    L1 = dproj:make_line(X, Y, Z),
+    L2 = dproj:make_line(X2, Y2, Z2),
+    P2 = dproj:make_point(X2, Y2, Z2),
+    P1 = dproj:make_point(X, Y, Z),
+    {{p1, P1}, {p2, P2},
+     {p1_p2_dist, distance(P1, P2)},
+     {dumb_method, line_dist_try(P1, P2, simplify(dproj:join(P1, P2)))},
+     {method1, estimate_line(P1, P2)},
+     ok};
+test(7) ->
+    P1 = {point,7021,8935,8622},
+    P2 = {point,7042,8976,8703},
+    L1 = {line,370233,-387639,100226},
+    L2 = {line,6254,-6548,1693},
+    {line_dist_try(P1, P2, L1),
+    line_dist_try(P1, P2, L2)}.
+    
+estimate_line(P1, P2) ->
+    %find the line in the system that most nearly intersects these two points.
+    L = dproj:simplify(dproj:join(P1, P2)),%this is the exactly line we want, but it is probably too big to fit in the system.
+    Max = max(abs(L#line.x), max(abs(L#line.y), abs(L#line.z))),
+    Min = min(abs(L#line.x), min(abs(L#line.y), abs(L#line.z))),
+    estimate_line2(P1, P2, L, Min, Max, 0, 0, 0, 0, 1000000000000000000.0).
+estimate_line2(P1, P2, L, Min, Max, T, X, Y, Z, Distance) when T > (?max-1) ->
+    {L, #line{x = X, y = Y, z = Z}, Distance};
+estimate_line2(P1, P2, L, Min, Max, T, X, Y, Z, Distance) ->
+    #line{x = X0, y = Y0, z = Z0} = L,
+    X1 = round(X0 * T / Max),
+    Y1 = round(Y0 * T / Max),
+    Z1 = round(Z0 * T / Max),
+    if
+	((T rem 100) == 99) ->
+	    %io:fwrite("trial " ++ integer_to_list(T) ++ " X: " ++ integer_to_list(X1) ++ " Y: " ++ integer_to_list(Y1) ++ " Z: " ++ integer_to_list(Z1) ++ " " ++ float_to_list(Distance) ++ "\n");
+	    ok;
+	true -> ok
+    end,
+    D1 = line_dist_try(P1, P2, {line, X1, Y1, Z1}),
+    Shortest = min(D1, Distance),
+    {X2, Y2, Z2} = case Shortest of
+		       Distance ->
+			   {X, Y, Z};
+		       D1 -> {X1, Y1, Z1}
+		   end,
+    estimate_line2(P1, P2, L, Min, Max, T+1, X2, Y2, Z2, Shortest).
+line_dist_try(P1, P2, {line, 0,0,0}) ->
+    10000000000000000000000000000000000000.0;
+line_dist_try(P1, P2, Line) ->
+%    Dist = distance_point_line(P1, Line) +
+%	distance_point_line(P2, Line),
+    Dist = math:sqrt(math:pow(distance_point_line(P1, Line), 2) +
+			 math:pow(distance_point_line(P2, Line), 2)),
+    if
+	%(Dist == 0.0) ->
+	%    10000000000000000000000000000000.0;
+	(Dist < 0.0) ->
+	    io:fwrite({Dist, P1, P2, Line}),
+	    1=2;
+	true -> Dist
+    end.
+distance_point_line(P, L) ->
+    P2 = dproj:dual(L),
+    L2 = dproj:join(P, P2),
+    P3 = dproj:meet(L, L2),
+    distance(P, P3).
+
+

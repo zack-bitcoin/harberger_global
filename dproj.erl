@@ -1,7 +1,7 @@
 -module(dproj).
 %projective geometry library.
 -export([dual/1, join/2, make_point/3, 
-         incident/2, concurrent/3,
+         incident/2, concurrent/3, meet/2, simplify/1,
          make_line/3]).
 
 -record(point, {x, y, z}).
