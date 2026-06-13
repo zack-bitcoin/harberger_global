@@ -42,6 +42,11 @@
 %  P = #point{z = Z}) ->
 %    point_to_gps(#spoint{point = P#point{z = -Z}},
 %                 s = false);
+
+%X {0, 90} %we want this to be Y.
+%Y   {0, 180} %this is negative X.
+%Z  {90, } north pole
+
 point_to_gps(
   #point{x = X, y = Y, z = Z}) ->
     A1 = math:sqrt((X*X) + (Y*Y)),
@@ -54,8 +59,19 @@ point_to_gps(
          end,
     %PN = PNc,
     Long = PN * 180 / math:pi(),
-    {Lat, Long}.
-gps_to_point({Lat, Long}) ->
+    Long1 = Long - 90,
+    Long2 = if
+		Long1 < -180 ->
+		    Long1 + 360;
+		true -> Long1
+	    end,
+    {Lat, Long2}.
+gps_to_point({Lat, Long0}) ->
+    Long1 = Long0 + 90,
+    Long = if
+	       Long1 > 360 -> Long1 - 360;
+	       true -> Long1
+	   end,
     Z = ?max,
     AN = (math:pi()/2) - 
         (Lat * math:pi() / 180),
@@ -302,14 +318,7 @@ test(6) ->
      {p1_p2_dist, distance(P1, P2)},
      {dumb_method, line_dist_try(P1, P2, simplify(dproj:join(P1, P2)))},
      {method1, estimate_line(P1, P2)},
-     ok};
-test(7) ->
-    P1 = {point,7021,8935,8622},
-    P2 = {point,7042,8976,8703},
-    L1 = {line,370233,-387639,100226},
-    L2 = {line,6254,-6548,1693},
-    {line_dist_try(P1, P2, L1),
-    line_dist_try(P1, P2, L2)}.
+     ok}.
     
 estimate_line(P1, P2) ->
     %find the line in the system that most nearly intersects these two points.
