@@ -1,7 +1,7 @@
--module(dproj).
+-module(proj).
 %projective geometry library.
 -export([dual/1, join/2, make_point/3, 
-         incident/2, concurrent/3, meet/2, simplify/1,
+         incident/2, concurrent/3, simplify/1,
          make_line/3]).
 
 -record(point, {x, y, z}).
@@ -21,7 +21,11 @@ gcd(0, 0, 0) ->
     io:fwrite("point/line (0,0,0) is undefined"),
     1=2;
 gcd(A, B, C) -> 
-    G = abs(gcd(gcd(A, B), C)).
+    G = gcd(gcd(A, B), C),
+    if
+        ((C*G)<0) -> -G;%third number always positive, so there is only one way to make each point/line
+        true -> G
+    end.
 
 %rules for generating the basic data structures
 make_point(X, Y, Z) ->
@@ -38,13 +42,20 @@ make_trilateral(L1, L2, L3) ->
     dual(make_triangle(
            dual(L1), dual(L2), dual(L3))).
 simplify(#point{x = X, y = Y, z = Z}) ->
+    %exact
     G = gcd(X, Y, Z),
     X2 = X div G,
     Y2 = Y div G,
     Z2 = Z div G,
-    #point{x = X2, 
-           y = Y2, 
-           z = Z2};
+    {X3, Y3, Z3} = 
+        if
+            ((Z == 0) and (X2 < 0)) ->
+                {-X2, -Y2, 0};
+            true -> {X2, Y2, Z2}
+        end,
+    #point{x = X3, 
+           y = Y3, 
+           z = Z3};
 simplify(L = #line{}) ->
     dual(simplify(dual(L))).
     
