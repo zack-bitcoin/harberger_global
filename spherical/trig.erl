@@ -262,12 +262,13 @@ det_sqrt(R) ->
     %x_n+1 = (x_n + R/x_n)/2
     %X0 = 1,
     %Est = {rat, 1, 1},
-    %Est = R,
+    Est = R,
     {rat, T, B} = R,
     %io:fwrite({det_log2(T), det_log2(B)}),
-    Est = {rat, det_log2(T), det_log2(B)},
+    %Est = {rat, det_log2(T), det_log2(B)},
     X1 = rat:est_simplify(rat:divide(rat:add(Est, R), 2), ?bits64),
-    det_sqrt2(X1, R, 27).
+    %det_sqrt2(X1, R, 27).
+    det_sqrt2(X1, R, 35).
 det_sqrt2(X, R, 0) -> X;
 det_sqrt2(X, R, N) -> 
     X2 = rat:est_simplify(rat:divide(rat:add(X, rat:divide(R, X)), 2), ?bits64),
