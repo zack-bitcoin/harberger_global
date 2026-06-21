@@ -2,7 +2,7 @@
 %self-contained implementation without libraries, for consideration to be put into the blockchain.
 
 -module(distance).
--export([distance/2]).
+-export([distance/2, test/1]).
 -define(radius, 6371000). 
 -record(srat, {rat, s}).%rat is a rational. s is for whether we are talking about the big or small angle. true indicates the short distance.
 -record(rat, {t, b}).
@@ -55,9 +55,13 @@ trig_spread(P1 = #point{}, P2 = #point{}) ->
                  rat_mul(dot3(P1, P1),
                          dot3(P2, P2)))).
 
+rat_sub(A, B) when is_integer(A) ->
+    rat_sub({rat, A, 1}, B);
 rat_sub({rat, T1, B1}, {rat, T2, B2}) ->
     rat_simplify({rat, ((T1*B2) - (T2*B1)), B1*B2}).
 rat_add(A, B) -> rat_sub(A, rat_negative(B)).
+rat_mul(A, B) when is_integer(B) ->
+    rat_mul(A, {rat, B, 1});
 rat_mul(A, B) when is_integer(A) ->
     rat_mul(B, {rat, A, 1});
 rat_mul({rat, T1, B1}, {rat, T2, B2}) ->
@@ -69,7 +73,7 @@ rat_divide(R1, {rat, T2, B2}) ->
 rat_negative({rat, T, B}) ->
     {rat, -T, B}.
 
-det_spread_to_angle(R = {rat, T, B}) when (abs(T) < abs(B)) and ((T*B) > 0) ->
+det_spread_to_angle(R = {rat, T, B}) when (abs(T) =< abs(B)) and ((T*B) > 0) ->
     X = det_sqrt(R),
     Bool = rat_less_than({rat, 3, 4}, R),
     Y = if
@@ -180,4 +184,12 @@ maclaurin_asin(X) -> %more accurate when x is smaller.
     A5 = rat_est_simplify(rat_add(A4, F6), ?bits64),
 
     A5.
+    
+test(1) ->
+    B = 100000000,
+    S = 1,
+    P1 = dproj:make_point(B, B, B+S),
+    P2 = dproj:make_point(B, B+S, B),
+    %io:fwrite({P1, P2}),
+    rat:to_float(distance(P1, P2)).
     
