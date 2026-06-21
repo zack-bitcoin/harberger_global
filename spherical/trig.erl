@@ -14,7 +14,7 @@
 -record(vector, {x, y}).%2 rationals
 -record(vector3, {x, y, z}).%3 rationals
 -record(triangle, {x, y, z}).%3 (s)points
--define(rat_pi, {rat, 312689, 99532}).%312689/99532 https://www.johndcook.com/blog/2018/05/22/best-approximations-for-pi/
+-define(rat_pi, {rat, 1146408, 364913}).%312689/99532 https://www.johndcook.com/blog/2018/05/22/best-approximations-for-pi/
 -define(bits32, 4294967296). %32
 -define(bits64, 18446744073709551616).
 -define(bits128, 340282366920938463463374607431768211456).
@@ -262,13 +262,20 @@ det_sqrt(R) ->
     %x_n+1 = (x_n + R/x_n)/2
     %X0 = 1,
     %Est = {rat, 1, 1},
-    Est = R,
+    %Est = R,
+    {rat, T, B} = R,
+    %io:fwrite({det_log2(T), det_log2(B)}),
+    Est = {rat, det_log2(T), det_log2(B)},
     X1 = rat:est_simplify(rat:divide(rat:add(Est, R), 2), ?bits64),
-    det_sqrt2(X1, R, 35).
+    det_sqrt2(X1, R, 27).
 det_sqrt2(X, R, 0) -> X;
 det_sqrt2(X, R, N) -> 
     X2 = rat:est_simplify(rat:divide(rat:add(X, rat:divide(R, X)), 2), ?bits64),
     det_sqrt2(X2, R, N-1).
+
+det_log2(M) when M < 3 -> 1;
+det_log2(N) when is_integer(N) -> 
+    1 + det_log2(N div 2).
     
 			  
     
@@ -322,6 +329,7 @@ test(1) ->
      parallel(V6, V5)};
 test(2) ->
     R1 = {rat, 1, 10000000000000000000},
+    %R1 = {rat, 1, 1},
     {spread_to_angle(R1), 
      1/2000000000,
      det_spread_to_angle(R1)};
