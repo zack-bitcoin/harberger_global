@@ -7,18 +7,23 @@
 -record(srat, {rat, s}).%rat is a rational. s is for whether we are talking about the big or small angle. true indicates the short distance.
 -record(rat, {t, b}).
 -record(point, {x, y, z}).%3 integers.
--record(line, {x, y, z}).%3 integers.
+%-record(line, {x, y, z}).%3 integers.
+-define(bits16, 65536). 
 -define(bits32, 4294967296). %32
+-define(bits30, 1073741824).
 -define(bits64, 18446744073709551616).
--define(bits128, 340282366920938463463374607431768211456).
+%-define(bits128, 340282366920938463463374607431768211456).
 -define(rat_pi, {rat, 1146408, 364913}).% https://www.johndcook.com/blog/2018/05/22/best-approximations-for-pi/
 
 
-distance(P1, {point, 0, 0, 0}) ->
-    1000000000000000000000000000000000000000;
+%distance(_P1, {point, 0, 0, 0}) ->
+%    1000000000000000000000000000000000000000;
 distance(P1, P2) ->
     #srat{rat = R, s = S} = 
         spherical_quadrance(P1, P2),
+    %R = {rat, 10000000383, 12393929994393494393429393},
+    %S = 1,
+    %io:fwrite(R),
     RB = (R == {rat, 0, 0}),
     if
 	RB -> io:fwrite({P1, P2});
@@ -32,28 +37,17 @@ distance(P1, P2) ->
     rat_mul(A3, {rat, ?radius, 1}).
 
 spherical_quadrance(P1, P2) ->
-    SBig = same_hemisphere(P1, P2),
-    Rat = trig_spread(P1, P2),
-    #srat{rat = Rat, s = SBig}.
-same_hemisphere(P1, P2) ->
-    dot3(P1, P2) > 0.
+    D3 = dot3(P1, P2),
+    SBig = (D3 > 0),%same hemisphere
+    %SBig = same_hemisphere(P1, P2),
+    %Rat = trig_spread(P1, P2),
+    R1 = {rat, D3*D3, dot3(P1, P1) * dot3(P2, P2)},
+    Rat = rat_sub({rat, 1, 1}, R1),
+    Rat2 = rat_est_simplify(Rat, ?bits64),
+    #srat{rat = Rat2, s = SBig}.
 dot3(#point{x = X1, y = Y1, z = Z1}, 
     #point{x = X2, y = Y2, z = Z2}) ->
     (X1 * X2) + (Y1 * Y2) + (Z1 * Z2).
-%dot3(P1 = #line{}, P2 = #line{}) ->
-%    dot3(dual(P1), dual(P2)).
-%dual(#line{x = X, y = Y, z = Z}) ->
-%    #point{x = X, y = Y, z = Z};
-%dual(#point{x = X, y = Y, z = Z})->
-%    #line{x = X, y = Y, z = Z};
-
-trig_spread(P1 = #point{}, P2 = #point{}) ->
-    D = dot3(P1, P2),
-    rat_sub(
-      {rat, 1, 1},
-      rat_divide(rat_mul(D, D), 
-                 rat_mul(dot3(P1, P1),
-                         dot3(P2, P2)))).
 
 rat_sub(A, B) when is_integer(A) ->
     rat_sub({rat, A, 1}, B);
@@ -74,21 +68,40 @@ rat_negative({rat, T, B}) ->
     {rat, -T, B}.
 
 det_spread_to_angle(R = {rat, T, B}) when (abs(T) =< abs(B)) and ((T*B) > 0) ->
-    X = det_sqrt(R),
+    X = det_sqrt(R, 2),
+    %X = R,
     Bool = rat_less_than({rat, 3, 4}, R),
     Y = if
-	    Bool -> rat_est_simplify(cg_asin(X), ?bits32);
-	    true -> rat_est_simplify(maclaurin_asin(X), ?bits64)
+	    Bool -> cg_asin(X);
+	    true -> 
+		maclaurin_asin(X)
 	end,
-    Y2 = rat_est_simplify(rat_sub(?rat_pi, Y), ?bits32),
+    Y2 = rat_est_simplify(rat_sub(?rat_pi, Y), ?bits30),
     {Y, Y2}.
-det_sqrt(R) ->
-    det_sqrt2(R, R, 60).
-det_sqrt2(X, R, 0) -> X;
+det_sqrt(R, Rounds) ->
+    {rat, T, B} = R,
+    L2T = log2(T),
+    T2 = det_pow(2, log2(T) div 2), 
+    B2 = det_pow(2, log2(B) div 2),
+    det_sqrt2({rat, T2, B2}, R, Rounds).
+det_sqrt2(X, _R, 0) -> X;
 det_sqrt2(X, R, N) ->
-    {rat, T, B} = rat_divide(rat_sub(R, rat_mul(X, X)), R),
-    X2 = rat_est_simplify(rat_divide(rat_add(X, rat_divide(R, X)), 2), ?bits128),
+    D1 = rat_est_simplify(rat_divide(R, X), ?bits30),
+    A1 = rat_add(X, D1),
+    D2 = rat_divide(A1, 2),
+    X2 = rat_est_simplify(D2, ?bits30),
     det_sqrt2(X2, R, N-1).
+log2(N) when N < 3 ->
+    1;
+log2(N) -> 1 + log2(N div 2).
+det_pow(0, _) -> 0;
+det_pow(_, 0) -> 1;
+det_pow(N, 1) -> N;
+det_pow(N, M) when (M div 2 == 0)-> 
+    X = det_pow(N, M div 2),
+    X*X;
+det_pow(N, M) -> 
+    N * det_pow(N, M-1).
     
 
 rat_less_than(#rat{t = T1, b = B1},
@@ -154,42 +167,72 @@ cg_asin(X) ->
     P1 = rat_add(rat_mul(A3, AbsX), A2),
     P2 = rat_add(rat_mul(P1, AbsX), A1),
     P3 = rat_add(rat_mul(P2, AbsX), A0),
-
     R = rat_sub(rat_divide(?rat_pi, 2),
-		rat_mul(det_sqrt(rat_sub(1, AbsX)), P3)),
-
+		rat_mul(det_sqrt(rat_sub(1, AbsX), 2), P3)),
     rat_est_simplify(rat_mul(R,Sign), ?bits32).
 maclaurin_asin(X) -> %more accurate when x is smaller.
-
     %sum from n=0 -> infinity of ((2n)! / ((2^(2n))*(n!^2))) * (x^(2n+1) / (2n+1))
     % x + x^3 / 6 + 3 * x^5 / 40 + 5 * x^7 / 112 + ...
-    X2 = rat_est_simplify(rat_mul(X, X), ?bits64),
-    X3 = rat_est_simplify(rat_mul(X2, X), ?bits64),
-    X5 = rat_est_simplify(rat_mul(X3, X2), ?bits64),
-    X7 = rat_est_simplify(rat_mul(X5, X2), ?bits64),
-    X9 = rat_est_simplify(rat_mul(X7, X2), ?bits64),
-    X11 = rat_est_simplify(rat_mul(X9, X2), ?bits64),
+    X2 = rat_est_simplify(rat_mul(X, X), ?bits30),
+    X3 = rat_est_simplify(rat_mul(X2, X), ?bits30),
+    %X5 = rat_est_simplify(rat_mul(X3, X2), ?bits30),
+    %X7 = rat_est_simplify(rat_mul(X5, X2), ?bits30),
+    %X9 = rat_est_simplify(rat_mul(X7, X2), ?bits30),
+    %X11 = rat_est_simplify(rat_mul(X9, X2), ?bits30),
 
     F1 = X,
-    F2 = rat_est_simplify(rat_mul(X3, {rat, 1, 6}), ?bits64),
-    F3 = rat_est_simplify(rat_mul(X5, {rat, 3, 40}), ?bits64),
-    F4 = rat_est_simplify(rat_mul(X7, {rat, 5, 112}), ?bits64),
-    F5 = rat_est_simplify(rat_mul(X9, {rat, 35, 1152}), ?bits64),
-    F6 = rat_est_simplify(rat_mul(X11, {rat, 63, 2816}), ?bits64),
+    F2 = rat_mul(X3, {rat, 1, 6}), 
+    %F3 = rat_mul(X5, {rat, 3, 40}),
+    %F4 = rat_mul(X7, {rat, 5, 112}),
+    %F5 = rat_mul(X9, {rat, 35, 1152}), 
+    %F6 = rat_mul(X11, {rat, 63, 2816}),
 
-    A1 = rat_est_simplify(rat_add(F1, F2), ?bits64),
-    A2 = rat_est_simplify(rat_add(A1, F3), ?bits64),
-    A3 = rat_est_simplify(rat_add(A2, F4), ?bits64),
-    A4 = rat_est_simplify(rat_add(A3, F5), ?bits64),
-    A5 = rat_est_simplify(rat_add(A4, F6), ?bits64),
+    A1 = rat_est_simplify(rat_add(F1, F2), ?bits30),
+    %A2 = rat_est_simplify(rat_add(A1, F3), ?bits30),
+    %A3 = rat_est_simplify(rat_add(A2, F4), ?bits30),
+    %A4 = rat_est_simplify(rat_add(A3, F5), ?bits30),
+    %A5 = rat_est_simplify(rat_add(A4, F6), ?bits30),
 
-    A5.
+    A1.
     
 test(1) ->
-    B = 100000000,
-    S = 1,
-    P1 = dproj:make_point(B, B, B+S),
-    P2 = dproj:make_point(B, B+S, B),
+    B = 100 * ?radius,
+    %B = 10000000000,
+    %B = 10000,
+    S = 100,
+    P1 = {point, B, B, B+S},
+    P2 = {point, B, B+S, B},
     %io:fwrite({P1, P2}),
-    rat:to_float(distance(P1, P2)).
+    rat:to_float(distance(P1, P2)); %0.008165236182126402
+test(2) ->
+    B = 100 * ?radius,
+    S = 10000,
+    P1 = {point, B, B, B+S},
+    P2 = {point, B, B+S, B},
+    Times = 1000,
+    T1 = erlang:timestamp(),
+    doit_times(Times, fun() ->
+		      distance(P1, P2)
+	      end),
+    T2 = erlang:timestamp(),
+    {verify, timer:now_diff(T2, T1) / Times, "millionths of a second per calculation."};
+test(3) ->
+    B = 100 * ?radius,
+    S = 10000,
+    P1 = {point, B, B, B+S},
+    P2 = {point, B, B+S, B},
+    Times = 1000,
+    T1 = erlang:timestamp(),
+    doit_times(Times, fun() ->
+			      %distance(P1, P2)
+			      spherical_quadrance(P1, P2)
+	      end),
+    T2 = erlang:timestamp(),
+    {verify, timer:now_diff(T2, T1) / Times, "millionths of a second per calculation."}.
+
+
+doit_times(0, _) -> ok;
+doit_times(N, F) -> 
+    F(),
+    doit_times(N-1, F).
     
