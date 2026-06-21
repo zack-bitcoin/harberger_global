@@ -146,10 +146,10 @@ distance(P1, P2) ->
     A3 * ?radius.
 area(P1, P2, P3) ->
     T = #triangle{x = P1, y = P2, z = P3},
-    A = spherical_trig:area(T),
+    A = spherical_trig:det_area(T),
     A * ?radius * ?radius.
 area(L) ->
-    A = spherical_trig:area(L),
+    A = spherical_trig:det_area(L),
     A * ?radius * ?radius.
 
 seperation(P1, P2) ->

@@ -8,7 +8,7 @@
 -record(rat, {t, b}).
 -record(point, {x, y, z}).%3 integers.
 %-record(line, {x, y, z}).%3 integers.
--define(bits16, 65536). 
+%-define(bits16, 65536). 
 -define(bits32, 4294967296). %32
 -define(bits30, 1073741824).
 -define(bits64, 18446744073709551616).
@@ -21,9 +21,6 @@
 distance(P1, P2) ->
     #srat{rat = R, s = S} = 
         spherical_quadrance(P1, P2),
-    %R = {rat, 10000000383, 12393929994393494393429393},
-    %S = 1,
-    %io:fwrite(R),
     RB = (R == {rat, 0, 0}),
     if
 	RB -> io:fwrite({P1, P2});
@@ -102,7 +99,6 @@ det_pow(N, M) when (M div 2 == 0)->
     X*X;
 det_pow(N, M) -> 
     N * det_pow(N, M-1).
-    
 
 rat_less_than(#rat{t = T1, b = B1},
           #rat{t = T2, b = B2}) ->

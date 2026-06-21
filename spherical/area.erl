@@ -18,14 +18,11 @@ area(T = #triangle{}) ->
     
 det_area(T = #triangle{}) ->
     SS = solid_spread(T),
-    %SS = {rat, 3939292383828, 2932932932},
     SR = det_sqrt(SS, 2),
-    %SR = rat_est_simplify(SS, ?bits64), 
     rat_divide(SR, 2).
 
 det_sqrt(R, Rounds) ->
     {rat, T, B} = R,
-    %L2T = log2(T),
     T2 = det_pow(2, log2(T) div 2), 
     B2 = det_pow(2, log2(B) div 2),
     det_sqrt2({rat, T2, B2}, R, Rounds).
@@ -67,9 +64,6 @@ divg(X, G) ->
 	(A == 0) and (X < 0) -> -1;
 	true -> A
     end.
-%rat_rabs({rat, X, Y}) ->
-%    {rat, abs(X), abs(Y)}.
-
 solid_spread(#triangle{x = X, y = Y, z = Z}) ->
     D = determinate(X, Y, Z),
     rat_est_simplify({rat, D*D, dot3(X, X)*dot3(Y,Y)*dot3(Z,Z)}, ?bits128).

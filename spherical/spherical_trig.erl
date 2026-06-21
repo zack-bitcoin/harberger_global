@@ -533,6 +533,7 @@ test(1) ->
     A = 63710000,%radius*10
     %A = 10,
     B = 1,
+    %10-cm x 10-cm
     P1 = #point{x = A+B, y = A, z = A},
     P2 = #point{x = A, y = A+B, z = A},
     P3 = #point{x = A, y = A, z = A+B},
