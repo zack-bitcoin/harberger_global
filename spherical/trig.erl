@@ -48,6 +48,7 @@ dot(#vector{x = X1, y = Y1},
     #vector{x = X2, y = Y2}) ->
     rat:add(rat:mul(X1, X2),
             rat:mul(Y1, Y2));
+%((x1*x2)+(y1*y2))/(z1*z2) 
 dot(#vector3{x = X1, y = Y1, z = Z1},
     #vector3{x = X2, y = Y2, z = Z2}) ->
     rat:add(
@@ -263,15 +264,18 @@ det_sqrt(R) ->
     %X0 = 1,
     %Est = {rat, 1, 1},
     Est = R,
-    {rat, T, B} = R,
+    %{rat, T, B} = R,
     %io:fwrite({det_log2(T), det_log2(B)}),
     %Est = {rat, det_log2(T), det_log2(B)},
-    X1 = rat:est_simplify(rat:divide(rat:add(Est, R), 2), ?bits64),
+    %X1 = rat:est_simplify(rat:divide(rat:add(Est, R), 2), ?bits64),
     %det_sqrt2(X1, R, 27).
-    det_sqrt2(X1, R, 35).
+    det_sqrt2(Est, R, 60).
 det_sqrt2(X, R, 0) -> X;
 det_sqrt2(X, R, N) -> 
-    X2 = rat:est_simplify(rat:divide(rat:add(X, rat:divide(R, X)), 2), ?bits64),
+    %{rat, T, B} = X,
+    {rat, T, B} = rat:divide(rat:sub(R, rat:mul(X, X)), R),
+    io:fwrite("det_sqrt2 " ++ integer_to_list(X#rat.t) ++ "/" ++ integer_to_list(X#rat.b) ++ " " ++ float_to_list(T/B) ++ "\n"),
+    X2 = rat:est_simplify(rat:divide(rat:add(X, rat:divide(R, X)), 2), ?bits128),
     det_sqrt2(X2, R, N-1).
 
 det_log2(M) when M < 3 -> 1;

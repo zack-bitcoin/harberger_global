@@ -3,7 +3,7 @@
          join/2, dual/1, area/1,
          quadrance/2, direction/2, region/1,
          flip_hemisphere/1,
-	 areab/1,
+	 det_area/1,
          test/1, test2/0, test3/0, test4/0,
          test5/0, test6/0, test8/0]).
 
@@ -537,7 +537,9 @@ test(1) ->
     P2 = #point{x = A, y = A+B, z = A},
     P3 = #point{x = A, y = A, z = A+B},
     T = #triangle{x = P1, y = P2, z = P3},
+    DA = det_area(T),
     {%rat:to_float(det_area(T)),
      area(T),
-     det_area(T),
-     rat:to_float(det_area(T))}.
+     DA,
+     rat:to_float(DA),
+     T}.
