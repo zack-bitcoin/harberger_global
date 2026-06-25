@@ -118,14 +118,14 @@ test(2) ->
     P1 = {point, B, B, B+S},
     P2 = {point, B, B+S, B},
     P3 = {point, B+S, B, B},
-    Times = 1000,
+    Times = 10000,
     T1 = erlang:timestamp(),
     doit_times(Times, fun() ->
 		      area({triangle, P1, P2, P3})
 	      end),
     T2 = erlang:timestamp(),
     {verify, timer:now_diff(T2, T1) / Times, "millionths of a second per calculation."}.
-    
+   
 doit_times(0, _) -> ok;
 doit_times(N, F) -> 
     F(),

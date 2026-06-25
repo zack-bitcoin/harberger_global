@@ -39,9 +39,10 @@ spherical_quadrance(P1, P2) ->
     %SBig = same_hemisphere(P1, P2),
     %Rat = trig_spread(P1, P2),
     R1 = {rat, D3*D3, dot3(P1, P1) * dot3(P2, P2)},
-    Rat = rat_sub({rat, 1, 1}, R1),
-    Rat2 = rat_est_simplify(Rat, ?bits64),
-    #srat{rat = Rat2, s = SBig}.
+    R2 = rat_est_simplify(R1, ?bits64),
+    Rat = rat_sub({rat, 1, 1}, R2),
+    %Rat2 = rat_est_simplify(Rat, ?bits64),
+    #srat{rat = Rat, s = SBig}.
 dot3(#point{x = X1, y = Y1, z = Z1}, 
     #point{x = X2, y = Y2, z = Z2}) ->
     (X1 * X2) + (Y1 * Y2) + (Z1 * Z2).
@@ -217,7 +218,7 @@ test(3) ->
     S = 10000,
     P1 = {point, B, B, B+S},
     P2 = {point, B, B+S, B},
-    Times = 1000,
+    Times = 10000,
     T1 = erlang:timestamp(),
     doit_times(Times, fun() ->
 			      %distance(P1, P2)

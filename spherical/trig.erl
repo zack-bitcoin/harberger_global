@@ -7,7 +7,7 @@
 	 det_spread_to_angle/1,
 	 maclaurin_asin/1,
 	 solid_spread/3, solid_spread/1,
-	 det_sqrt/1,
+	 det_sqrt/2,
          test/1]).
 %-record(line, {x, y, z}).%3 integers
 -record(point, {x, y, z}).%3 integers
@@ -181,7 +181,7 @@ det_spread_to_angle(R) ->
     %if R > 1 or R < 0, fail.
     %if R > 3/4ths, use the cg_asin, otherwise use the maclaurin_asin.
 
-    X = rat:est_simplify(det_sqrt(R), ?bits64),
+    X = rat:est_simplify(det_sqrt(R, 2), ?bits64),
     %io:fwrite({rat:to_float(X), math:sqrt(rat:to_float(R))}),
     B = rat:less_than({rat, 3, 4}, R),
     Y = if
@@ -221,7 +221,7 @@ cg_asin(X) ->
     P3 = rat:add(rat:mul(P2, AbsX), A0),
 
     R = rat:sub(rat:divide(?rat_pi, 2),
-		rat:mul(det_sqrt(rat:sub(1, AbsX)), P3)),
+		rat:mul(det_sqrt(rat:sub(1, AbsX), 2), P3)),
 
     rat:est_simplify(rat:mul(R,Sign), ?bits32).
 
@@ -258,7 +258,34 @@ maclaurin_asin(X) -> %more accurate when x is smaller.
     A5.
     
       %rat:mul(X5, {rat, 3, 40})).
-det_sqrt(R) ->
+
+det_sqrt(R, Rounds) ->
+    {rat, T, B} = R,
+    T2 = det_pow(2, log2(T) div 2), 
+    B2 = det_pow(2, log2(B) div 2),
+    det_sqrt2({rat, T2, B2}, R, Rounds).
+det_sqrt2(X, _R, 0) -> X;
+det_sqrt2(X, R, N) ->
+    D1 = rat:est_simplify(rat:divide(R, X), ?bits64),
+    A1 = rat:add(X, D1),
+    D2 = rat:divide(A1, 2),
+    X2 = rat:est_simplify(D2, ?bits64),
+    det_sqrt2(X2, R, N-1).
+log2(N) when N < 3 ->
+    1;
+log2(N) -> 1 + log2(N div 2).
+det_pow(0, _) -> 0;
+det_pow(_, 0) -> 1;
+det_pow(N, 1) -> N;
+det_pow(N, M) when (M div 2 == 0)-> 
+    X = det_pow(N, M div 2),
+    X*X;
+det_pow(N, M) -> 
+    N * det_pow(N, M-1).
+
+
+
+old_det_sqrt(R) ->
     %babylon method
     %x_n+1 = (x_n + R/x_n)/2
     %X0 = 1,
@@ -270,11 +297,11 @@ det_sqrt(R) ->
     %X1 = rat:est_simplify(rat:divide(rat:add(Est, R), 2), ?bits64),
     %det_sqrt2(X1, R, 27).
     det_sqrt2(Est, R, 60).
-det_sqrt2(X, R, 0) -> X;
-det_sqrt2(X, R, N) -> 
+old_det_sqrt2(X, R, 0) -> X;
+old_det_sqrt2(X, R, N) -> 
     %{rat, T, B} = X,
     {rat, T, B} = rat:divide(rat:sub(R, rat:mul(X, X)), R),
-    io:fwrite("det_sqrt2 " ++ integer_to_list(X#rat.t) ++ "/" ++ integer_to_list(X#rat.b) ++ " " ++ float_to_list(T/B) ++ "\n"),
+    %io:fwrite("det_sqrt2 " ++ integer_to_list(X#rat.t) ++ "/" ++ integer_to_list(X#rat.b) ++ " " ++ float_to_list(T/B) ++ "\n"),
     X2 = rat:est_simplify(rat:divide(rat:add(X, rat:divide(R, X)), 2), ?bits128),
     det_sqrt2(X2, R, N-1).
 

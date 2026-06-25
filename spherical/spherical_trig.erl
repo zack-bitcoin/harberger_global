@@ -3,7 +3,7 @@
          join/2, dual/1, area/1,
          quadrance/2, direction/2, region/1,
          flip_hemisphere/1,
-	 det_area/1,
+	 det_area/1, linify/1, area2/1, too_squished/2,
          test/1, test2/0, test3/0, test4/0,
          test5/0, test6/0, test8/0]).
 
@@ -37,10 +37,24 @@ dot(#point{x = X1, y = Y1, z = Z1},
     (X1 * X2) + (Y1 * Y2) + (Z1 * Z2);
 dot(P1 = #line{}, P2 = #line{}) ->
     dot(dproj:dual(P1), dproj:dual(P2)).
+%quadrances(L) when is_list(L) ->
+%    quadrances_list(L++[hd(L)]);
 quadrances(#triangle{x = X, y = Y, z = Z}) ->
     [quadrance(Y, Z),
      quadrance(Z, X),
      quadrance(Y, X)].
+%quadrances_list([A, B]) ->
+%    [quadrance(A, B)];
+%quadrances_list([A, B|T]) ->
+%    [quadrance(A, B)|quadrances_list([B|T])].
+quadrances_all_pairs([_]) -> [];
+quadrances_all_pairs([H|T]) -> 
+    quadrances_all_pairs2(H, T) ++
+	quadrances_all_pairs(T).
+quadrances_all_pairs2(_, []) -> [];
+quadrances_all_pairs2(X, [H|T]) -> 
+    [quadrance(X, H)|
+     quadrances_all_pairs2(X, T)].
 dual(#trilateral{x = L1, y = L2, z = L3}) ->
     #triangle{x = dproj:dual(L1), 
               y = dproj:dual(L2), 
@@ -93,17 +107,19 @@ area2([A, B, C|T]) ->
     %also works for convex regions.
     Tri = make_triangle(A, B, C),
     S = clockwise(Tri),
-    Area = area(Tri),
+    %Area = area(Tri),
+    Area = area:area(Tri),
     A2 = if
              S -> Area;
-             true -> -Area
+             true -> rat:negative(Area)
          end,
-    A2 + area([A, C|T]);
-area2([_, _]) -> 0.
+    rat:est_simplify(rat:add(A2, area2([A, C|T])), ?bits32);
+area2([_, _]) -> {rat, 0, 1}.
 det_area(#triangle{x = X, y = Y, z = Z}) ->
+    1=2, %use area:area instead.
     SS = rat:est_simplify(trig:solid_spread(X, Y, Z), ?bits128),
     %io:fwrite({SS, rat:to_float(SS)}),
-    SR = rat:est_simplify(trig:det_sqrt(SS), ?bits64), 
+    SR = rat:est_simplify(trig:det_sqrt(SS, 2), ?bits64), 
     %SR.
     %io:fwrite({SS, SR, rat:to_float(SS), rat:to_float(SR)}),
     rat:divide(SR, 2).
@@ -242,6 +258,17 @@ remove_if_touch_2(Lines, Ps) ->
                   end, Ps)) < 2
       end, 
       Lines).
+max_quadrance(L) ->
+    max_quadrance2(L, {rat, 0, 1}).
+max_quadrance2([], M) -> M;
+max_quadrance2([{srat, H, _}|T], M) -> 
+    B = rat:less_than(M, H),
+    if
+	B -> max_quadrance2(T, H);
+	true -> max_quadrance2(T, M)
+    end.
+	    
+
 linify([H|T]) ->
     %starts with point preceding first line.
     %used for tests.
@@ -260,6 +287,10 @@ concurrent(X, Y, Z) ->
     dproj:concurrent(X, Y, Z).
 remove_concurrents([A, B, C|T]) -> 
     Bool = concurrent(A, B, C),
+    if
+	Bool -> "removed concurrent\n";
+	true -> ok
+    end,
     case {Bool, T} of
         {true, []} -> [];
         {_, []} -> [A, B, C];
@@ -269,7 +300,6 @@ remove_concurrents([A, B, C|T]) ->
 %region operations
 region(L) ->
     %given a list of lines, return the points at the corner of the enclosed region.
-%todo: if a region has no space in it, we need to realize this and say so.
     if
         length(L) < 3 -> empty_region;
         true ->
@@ -281,6 +311,13 @@ region(L) ->
                 true -> region(L5)
             end
     end.
+
+too_squished(Area, Region) ->
+    Qs = quadrances_all_pairs(Region),
+    Q = max_quadrance(Qs),
+    rat:less_than(rat:mul(16, Area), Q).
+%Area * 16 < rat:to_float(Q).
+    
     
 
 test() ->
@@ -538,9 +575,53 @@ test(1) ->
     P2 = #point{x = A, y = A+B, z = A},
     P3 = #point{x = A, y = A, z = A+B},
     T = #triangle{x = P1, y = P2, z = P3},
-    DA = det_area(T),
+    DA = area:area(T),
     {%rat:to_float(det_area(T)),
      area(T),
      DA,
      rat:to_float(DA),
-     T}.
+     T};
+test(2) -> 
+    %test to see if a region is too squished to be valid.
+    A = 32768,
+    B = 1,
+    Stretch = 0,
+    P1 = #point{x = A+3, y = A, z = A},
+    P2 = #point{x = A+2, y = A+2, z = A},
+    %P2 = #point{x = 2+A, y = 2+A, z = A},
+    P3 = #point{x = A, y = A+3, z = A},
+    P4 = #point{x = A-2, y = A+2, z = A},
+    %P4 = #point{x = -2+A, y = 2+A, z = A},
+    P5 = #point{x = A-3, y = A, z = A},
+    P6 = #point{x = A-2, y = A-2, z = A},
+    %P6 = #point{x = -2+A, y = -2+A, z = A},
+    P7 = #point{x = A, y = A-3, z = A},
+    P8 = #point{x = A+2, y = A-2, z = A},
+    %P8 = #point{x = 2+A, y = -2+A, z = A},
+    Ps = [P1, P2, P3, P4, P5, P6, P7, P8],
+    Ls = linify([P1, P2, P3, P4]),
+    R = region(Ls),
+    io:fwrite({Ps, R}),
+    %io:fwrite(R),
+    %find the 2 points with the biggest spread.
+    % must be true: (D^2)/20 < Area
+    %io:fwrite({Area}),
+    %Area = rat:rabs(area2(Ps)),
+    Area = rat:est_simplify(rat:rabs(area2(Ps)), ?bits32),
+    Times = 10000,
+    T1 = erlang:timestamp(),
+    doit_times(Times, fun() ->
+			      Area = rat:est_simplify(rat:rabs(area2(Ps)), ?bits32),
+			      false = too_squished(Area, Ps)
+	      end),
+    T2 = erlang:timestamp(),
+    %Qs = quadrances_all_pairs(R),
+    %Q = max_quadrance(Qs),
+    %true = (Area * 16 > rat:to_float(Q)),
+    %{Area/rat:to_float(Q), Qs, R}.
+    {verify, timer:now_diff(T2, T1) / Times, "millionths of a second per calculation.", Area}.
+%success.
+doit_times(0, _) -> ok;
+doit_times(N, F) -> 
+    F(),
+    doit_times(N-1, F).

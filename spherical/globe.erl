@@ -7,6 +7,7 @@
          gpsify/1, area/1,
          test/0, test2/0, test3/0,
 	 estimate_line/2, simplify/1,
+	 radius/0,
          test/1]).
 
 -define(radius, 6371000). 
@@ -48,6 +49,7 @@
 %Y   {0, 180} %this is negative X.
 %Z  {90, } north pole
 
+radius() -> ?radius.
 point_to_gps(
   #point{x = X, y = Y, z = Z}) ->
     A1 = math:sqrt((X*X) + (Y*Y)),
@@ -327,7 +329,23 @@ test(6) ->
      {p1_p2_dist, distance(P1, P2)},
      {dumb_method, line_dist_try(P1, P2, simplify(dproj:join(P1, P2)))},
      {method1, estimate_line(P1, P2)},
-     ok}.
+     ok};
+test(7) ->
+    Ps = [gps_to_point({10, 10}),
+	  %gps_to_point({11, 10}),
+	  gps_to_point({12, 11}),
+	  %gps_to_point({12, 12}),
+	  gps_to_point({11, 13}),
+	  %gps_to_point({10, 13}),
+	  gps_to_point({9, 12})%,
+	  %gps_to_point({9, 11})
+	 ],
+    %io:fwrite({Ps}),
+    Ls = spherical_trig:linify(Ps),
+    R = spherical_trig:region(Ls),
+    A = spherical_trig:area2(Ps),
+    {spherical_trig:too_squished(A, Ps), A, R, Ls, Ps}.
+
     
 estimate_line(P1, P2) ->
     %find the line in the system that most nearly intersects these two points.
